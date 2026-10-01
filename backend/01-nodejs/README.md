@@ -59,6 +59,8 @@ flowchart LR
 
 Orden práctico de ejecución: **síncrono → `nextTick` → Promesas → timers → I/O → `setImmediate`**.
 
+> Excepción importante: en el script principal, el orden entre `setTimeout(fn, 0)` y `setImmediate(fn)` **no está garantizado**. Depende de si el temporizador de 1 ms ya venció cuando el loop entra a la fase `timers`, y eso varía según la carga del sistema. Dentro de un callback de I/O (por ejemplo, de `fs.readFile`), `setImmediate` se ejecuta **siempre primero**.
+
 El proceso de Node tiene un **ciclo de vida**: *inicio* (se cargan módulos y globales) → *ejecución* (se procesa el script y el Event Loop) → *finalización* (cuando no quedan tareas pendientes ni servidores escuchando, el proceso termina solo). Por eso un script simple termina, pero un servidor HTTP queda "colgado": tiene un *listener* activo.
 
 ### 1.4 Módulos en Node
@@ -197,7 +199,7 @@ Y desde la terminal:
 
 ### Parte A — Predecí el orden (sin ejecutar)
 
-Escribí en un comentario el orden en que se imprimen los números. **Después** ejecutalo y compará. Explicá con tus palabras cada diferencia.
+Escribí en un comentario el orden en que se imprimen los números. **Después** ejecutalo **al menos 10 veces** y compará. Explicá con tus palabras cada diferencia.
 
 ```js
 console.log('1');
@@ -207,6 +209,12 @@ Promise.resolve().then(() => console.log('4'));
 process.nextTick(() => console.log('5'));
 console.log('6');
 ```
+
+Preguntas para responder en el comentario:
+1. ¿Por qué `6` sale antes que cualquier callback?
+2. ¿Por qué `5` sale antes que `4`?
+3. Si en alguna ejecución `2` y `3` cambiaron de lugar, ¿por qué pasa? (Pista: releé la excepción de la sección 1.3.)
+4. Envolvé todo el bloque dentro de `require('node:fs').readFile(__filename, () => { ... })` y ejecutalo varias veces. ¿Qué cambió entre `2` y `3`? ¿Por qué ahora el orden es siempre el mismo?
 
 ### Parte B — CLI de notas
 
