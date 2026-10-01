@@ -355,14 +355,21 @@ Con `defaultScope` que excluya `password` y un scope `withPassword`.
 **Reglas de eliminación lógica en cascada** (dentro de una **transacción**):
 - Eliminar un **post** → elimina lógicamente sus comentarios.
 - Eliminar un **usuario** → elimina lógicamente sus posts y sus comentarios (y los comentarios de otros usuarios en sus posts).
-- Restaurar un **post** → restaura los comentarios que se eliminaron **junto con él** (no los que se habían eliminado antes por separado). Pista: compará `deletedAt` del comentario con el del post.
+- Restaurar un **post** → restaura los comentarios que se eliminaron **junto con él** (no los que se habían eliminado antes por separado).
 
 ```js
+// Eliminar: primero el post, después sus comentarios.
+// Así todo comentario eliminado "junto con" el post tiene deletedAt >= post.deletedAt.
 await sequelize.transaction(async (t) => {
-  await CommentModel.destroy({ where: { post_id: post.id }, transaction: t });
   await post.destroy({ transaction: t });
+  await CommentModel.destroy({ where: { post_id: post.id }, transaction: t });
 });
 ```
+
+Pistas para restaurar:
+- Con `paranoid`, `Model.destroy({ where })` **no modifica** las filas que ya estaban eliminadas: el comentario borrado antes conserva su `deletedAt` original, que es anterior al del post.
+- **Guardá** `post.deletedAt` en una variable **antes** de llamar a `post.restore()`: `restore()` lo vuelve `null` y perdés la referencia.
+- Restaurá solo los comentarios con `deletedAt: { [Op.gte]: fechaGuardada }`.
 
 **Validaciones:** `PUT /api/posts/:id` con campos opcionales + `matchedData`; `PATCH /api/users/:id/role` con `role` en `isIn(['user', 'moderator', 'admin'])`.
 
