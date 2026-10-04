@@ -36,7 +36,7 @@ En el **navegador** existen `window`, `document` y el DOM. En **Node** no existe
 En Node, las operaciones de entrada/salida (leer un archivo, consultar una base de datos) se **delegan** a un *thread pool* o al sistema operativo. Cuando terminan, se avisa al hilo principal para que procese la respuesta.
 
 ```js
-const fs = require('node:fs');
+import fs from 'node:fs';
 
 // Bloqueante: el programa espera acá hasta terminar de leer
 const texto = fs.readFileSync('./datos.txt', 'utf-8');
@@ -84,19 +84,24 @@ Un **módulo** es un archivo de código reutilizable con su **propio ámbito**: 
 | **Locales (Local Modules)** | Archivos que escribe el desarrollador. | `./utils/saludos.js` |
 | **Externos (Third-party Modules)** | Paquetes de otros desarrolladores, publicados en npm. | `express`, `sequelize`, `dotenv` |
 
-En este módulo se usa el sistema original de Node, **CommonJS**: `module.exports` para exportar y `require()` para importar. En el **módulo 02** se reemplaza por **ES Modules** (`import`/`export`), que es lo que exigen los trabajos prácticos.
+Los módulos se conectan con **ES Modules**, el sistema estándar de JavaScript que exigen los trabajos prácticos: **`export`** para compartir y **`import`** para usar. Para activarlo, el `package.json` debe tener `"type": "module"`.
 
 ```js
 // utils/saludos.js  → módulo local
-const saludar = (nombre) => `Hola, ${nombre}`;
-module.exports = { saludar };
-
-// app.js
-const os = require('node:os');                    // módulo integrado
-const { saludar } = require('./utils/saludos.js'); // módulo local (ruta con ./)
-
-console.log(saludar('Ada'), 'desde', os.platform());
+export const saludar = (nombre) => `Hola, ${nombre}`;
 ```
+
+```js
+// app.js
+import os from 'node:os';                        // módulo integrado
+import { saludar } from './utils/saludos.js';    // módulo local: ./ y extensión .js
+
+console.log(`${saludar('Ada')} desde ${os.platform()}`);
+```
+
+- `import` **crea la variable** con lo que el otro archivo exportó (`os`, `saludar`).
+- En los módulos locales la ruta empieza con `./` o `../` y **lleva la extensión `.js`**.
+- En el **módulo 02** se profundiza: exportaciones nombradas y por defecto, y los errores más comunes.
 
 ### 1.5 npm y `package.json`
 
@@ -106,6 +111,7 @@ console.log(saludar('Ada'), 'desde', os.platform());
 |---|---|
 | `npm init -y` | Crea el `package.json`. |
 | `package.json` | **Manifiesto** del proyecto: nombre, scripts y dependencias. |
+| `"type": "module"` | Línea del `package.json` que activa `import` / `export`. Se agrega a mano después de `npm init -y`. |
 | `npm install express` | Descarga el paquete en `node_modules/` y lo anota en `dependencies`. |
 | `node_modules/` | Código de las dependencias. **Nunca se sube a Git**: se regenera con `npm install`. |
 | `package-lock.json` | Fija las versiones exactas instaladas. Sí se sube a Git. |
@@ -124,7 +130,7 @@ APP_NAME=Mi API
 ```
 
 ```js
-require('dotenv').config();       // carga el .env en process.env
+import 'dotenv/config';           // carga el .env en process.env
 console.log(process.env.PORT);    // '3000' → siempre es un string
 ```
 
@@ -138,7 +144,7 @@ Un **servidor** es un software que **escucha solicitudes** (requests) de cliente
 Node incluye el módulo integrado `http` para crear uno:
 
 ```js
-const http = require('node:http');
+import http from 'node:http';
 
 const server = http.createServer((req, res) => {
   if (req.url === '/api/saludo') {
@@ -159,17 +165,18 @@ Con `http` todo es manual (comparar URLs, convertir a JSON, escribir headers). E
 | Error | Causa | Solución |
 |---|---|---|
 | `ReferenceError: document is not defined` | Usar el DOM en Node. | Node no tiene DOM. |
-| `Cannot find module './utils/saludos'` | Ruta mal escrita o sin `./`. | Los módulos locales empiezan con `./` o `../`. |
-| `ReferenceError: os is not defined` (o `sumar is not defined`) | Se escribió `require('node:os')` **sin guardar** lo que devuelve. `require` no crea variables: devuelve lo que el módulo exporta. | `const os = require('node:os');` y `const { sumar } = require('./utils/calculos.js');` |
-| `Cannot find module 'dotenv'` | El paquete no está instalado. | `npm install dotenv`. |
-| `process.env.PORT` es `undefined` | No se cargó `dotenv` o el `.env` no está en la raíz. | Llamar a `dotenv` al inicio y revisar la ubicación del `.env`. |
+| `SyntaxError: Cannot use import statement outside a module` | Falta `"type": "module"` en el `package.json`. | Agregarlo. |
+| `Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../utils/saludos'` | Ruta mal escrita, sin `./` o **sin la extensión `.js`**. | `import { saludar } from './utils/saludos.js'`. |
+| `ReferenceError: os is not defined` (o `sumar is not defined`) | Se usó algo que nunca se importó, o se escribió `import 'node:os'` sin darle un nombre. | `import os from 'node:os';` y `import { sumar } from './utils/calculos.js';` |
+| `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'dotenv'` | El paquete no está instalado. | `npm install dotenv`. |
+| `process.env.PORT` es `undefined` | Falta `import 'dotenv/config'` o el `.env` no está en la raíz. | Agregar el import y revisar la ubicación del `.env`. |
 | `EADDRINUSE: address already in use :::3000` | Ya hay un proceso usando ese puerto. | Cerrar el anterior (`Ctrl + C`) o cambiar el puerto. |
 | El navegador queda "cargando" | El servidor nunca respondió (`res.end`). | Toda solicitud debe recibir una respuesta. |
 
 ### 1.9 Dónde vas a usar esto en los trabajos prácticos
 
 - `npm init` y `npm install express sequelize mysql2 ...` para crear el proyecto e instalar dependencias.
-- `package.json` con el script `"dev": "node --watch app.js"`.
+- `package.json` con `"type": "module"` y el script `"dev": "node --watch app.js"`.
 - `.env` (`PORT`, `DB_HOST`, `JWT_SECRET`...) + `.env.example` + `.gitignore` con `node_modules/` y `.env`.
 - Entender que el servidor queda escuchando solicitudes y que las consultas a la base de datos son **asíncronas**.
 
@@ -177,21 +184,22 @@ Con `http` todo es manual (comparar URLs, convertir a JSON, escribir headers). E
 
 ## 2. Ejercicio fácil — "Mis primeros módulos"
 
-**Qué vas a practicar:** crear un proyecto con npm, módulos **locales** e **integrados** con `require` / `module.exports`.
+**Qué vas a practicar:** crear un proyecto con npm y conectar módulos **locales** e **integrados** con `export` / `import`.
 
 **En el proyecto real:** así se separa el código en archivos. En el TP cada carpeta (`routes`, `controllers`, `models`) es un conjunto de módulos locales.
 
 ### Consigna
 
 1. Creá la carpeta `mis-modulos/` y ejecutá `npm init -y` adentro.
-2. Creá `utils/calculos.js` con dos funciones y exportalas con `module.exports`:
+2. En `package.json`, agregá `"type": "module"` (si `npm init` puso otro valor en `"type"`, cambialo por `"module"`).
+3. Creá `utils/calculos.js` con dos funciones exportadas con `export const`:
    - `sumar(a, b)`
    - `calcularIva(precio)` → devuelve el precio con 21 % agregado.
-3. Creá `app.js` que:
-   - Importe tus funciones con `require('./utils/calculos.js')`.
-   - Importe el módulo integrado `os` y muestre el sistema operativo (`os.platform()`).
+4. Creá `app.js` que:
+   - Importe tus funciones con `import { ... } from './utils/calculos.js'`.
+   - Importe el módulo integrado `os` con `import os from 'node:os'` y muestre el sistema operativo (`os.platform()`).
    - Muestre en consola el resultado de `sumar(10, 5)` y de `calcularIva(1000)`.
-4. Agregá en `package.json` el script `"start": "node app.js"` y ejecutalo con `npm start`.
+5. Agregá en `package.json` el script `"start": "node app.js"` y ejecutalo con `npm start`.
 
 ### Cómo probarlo
 
@@ -206,8 +214,8 @@ Precio con IVA: 1210
 Creá `test.js` y ejecutalo con `node test.js`. En cada línea, el valor **obtenido** tiene que coincidir con el **esperado**:
 
 ```js
-const { sumar, calcularIva } = require('./utils/calculos.js');
-const os = require('node:os');
+import { sumar, calcularIva } from './utils/calculos.js';
+import os from 'node:os';
 
 console.log(`sumar(10, 5) → esperado: 15 | obtenido: ${sumar(10, 5)}`);
 console.log(`calcularIva(1000) → esperado: 1210 | obtenido: ${calcularIva(1000)}`);
@@ -224,7 +232,7 @@ console.log(`os.platform() → esperado: un texto (win32, linux...) | obtenido: 
 
 ### Consigna
 
-1. Proyecto nuevo `config-app/` con `npm init -y`.
+1. Proyecto nuevo `config-app/` con `npm init -y` y `"type": "module"` en el `package.json`.
 2. Instalá `dotenv`. Revisá qué se agregó en `package.json` y qué apareció en la carpeta.
 3. Creá un `.env` con:
    ```env
@@ -234,7 +242,7 @@ console.log(`os.platform() → esperado: un texto (win32, linux...) | obtenido: 
    ```
 4. Creá `.env.example` con las mismas claves pero **sin valores**.
 5. Creá `.gitignore` con `node_modules/` y `.env`.
-6. Creá `app.js` que cargue `dotenv` y muestre:
+6. Creá `app.js` que cargue `dotenv` con `import 'dotenv/config'` y muestre:
    ```
    Aplicación: Gestor de Personajes
    Puerto: 3000
@@ -268,10 +276,10 @@ console.log(`os.platform() → esperado: un texto (win32, linux...) | obtenido: 
 
 ### Parte A — Predecí el orden
 
-Creá `datos.txt` con cualquier texto y este archivo `orden.js`:
+En un proyecto con `"type": "module"`, creá `datos.txt` con cualquier texto y este archivo `orden.js`:
 
 ```js
-const fs = require('node:fs');
+import fs from 'node:fs';
 
 console.log('1. Inicio');
 
@@ -295,7 +303,7 @@ console.log('5. Fin del script');
 
 ### Parte B — Servidor con `http`
 
-Creá `server.js` (podés reutilizar el `.env` del ejercicio medio) que escuche en `process.env.PORT` y responda **en JSON**:
+Creá `server.js` (podés reutilizar el `.env` del ejercicio medio) que importe `http` con `import http from 'node:http'`, escuche en `process.env.PORT` y responda **en JSON**:
 
 | Ruta | Status | Respuesta |
 |---|---|---|

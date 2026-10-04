@@ -1,31 +1,25 @@
 # Módulo 02 — ES Modules: `import` y `export`
 
-> Requisito de los trabajos prácticos: *"El proyecto debe configurarse con `"type": "module"` en `package.json`. Todos los archivos deben usar la sintaxis `import`/`export`. Está prohibido el uso de `require` o `module.exports`."*
+> Requisito de los trabajos prácticos: *"El proyecto debe configurarse con `"type": "module"` en `package.json`. Todos los archivos deben usar la sintaxis `import`/`export`."*
 
 ---
 
 ## 1. Conceptos principales
 
-### 1.1 Dos sistemas de módulos
+### 1.1 Qué es ES Modules
 
-Un **sistema de módulos** define cómo un archivo **comparte** código (export) y cómo otro lo **usa** (import). En Node conviven dos:
+**ES Modules (ESM)** es el **sistema de módulos estándar de JavaScript** (desde ES6). Define cómo un archivo **comparte** código (`export`) y cómo otro archivo lo **usa** (`import`). Es el mismo sistema en el navegador (`<script type="module">`) y en Node.js.
 
-| | **CommonJS** (módulo 01) | **ES Modules** (este módulo) |
-|---|---|---|
-| Origen | Creado por Node. | **Estándar oficial** de JavaScript (ES6). |
-| Exportar | `module.exports = { ... }` | `export` |
-| Importar | `const x = require('./x')` | `import x from './x.js'` |
-| Extensión en rutas locales | Opcional. | **Obligatoria** (`.js`). |
-| Dónde se escriben los imports | En cualquier línea. | Al **inicio** del archivo. |
-| Funciona en el navegador | No. | Sí. |
-
-**ES Modules (ESM)** es el estándar del lenguaje: el mismo sistema funciona en el navegador y en el servidor. Por eso los trabajos prácticos lo exigen.
+Características:
+- Los `import` se escriben al **inicio** del archivo.
+- En los módulos locales, la ruta lleva **siempre la extensión** `.js`.
+- Cada archivo tiene su propio ámbito: lo que no se exporta queda **privado** a ese archivo.
 
 > ES Modules **no es una carpeta ni una capa** del proyecto: es la **forma en que todos los archivos se conectan** entre sí. `app.js`, las rutas, los controladores, los modelos y los middlewares usan `import`/`export`.
 
 ### 1.2 Activar ES Modules
 
-Node decide cómo leer los `.js` según el `package.json`:
+Node necesita que el `package.json` lo indique con `"type": "module"`:
 
 ```json
 {
@@ -37,8 +31,8 @@ Node decide cómo leer los `.js` según el `package.json`:
 }
 ```
 
-- Con `"type": "module"` → los archivos usan `import`/`export`.
-- Sin `"type"` o con `"type": "commonjs"` → los archivos usan `require`.
+- `npm init -y` puede crear el `package.json` con otro valor en `"type"`: hay que cambiarlo a `"module"`.
+- Sin `"type": "module"`, Node no reconoce bien `import`/`export` y muestra un error o una advertencia.
 
 ### 1.3 Exportaciones nombradas y por defecto
 
@@ -110,24 +104,30 @@ Este import no trae ninguna variable: solo **ejecuta** el archivo de `dotenv`, q
 
 > Todos los `import` de un archivo se resuelven y ejecutan **antes** que el resto de su código, sin importar en qué línea estén. Igual se escriben arriba de todo, para que se lea claro de qué depende el archivo.
 
-### 1.6 Equivalencias CommonJS → ESM
+### 1.6 Cómo leer un `import`
 
-| CommonJS | ES Modules |
+| Import | Qué trae | De dónde |
+|---|---|---|
+| `import express from 'express';` | El export **por defecto** de Express, en la variable `express`. | Paquete externo (`node_modules`). |
+| `import { Router } from 'express';` | El export **nombrado** `Router`. | Paquete externo. |
+| `import { body, param } from 'express-validator';` | Dos exports nombrados. | Paquete externo. |
+| `import os from 'node:os';` | El módulo integrado `os`. | Node.js. |
+| `import { UserModel } from '../models/index.js';` | El export nombrado `UserModel`. | Archivo local, una carpeta arriba (`../`). |
+| `import 'dotenv/config';` | Nada: solo ejecuta el archivo. | Paquete externo. |
+
+| Export | Cómo se importa |
 |---|---|
-| `const express = require('express');` | `import express from 'express';` |
-| `const { Router } = require('express');` | `import { Router } from 'express';` |
-| `const { sumar } = require('./math');` | `import { sumar } from './math.js';` |
-| `module.exports = { sumar, restar };` | `export const sumar = ...` / `export const restar = ...` |
-| `module.exports = app;` | `export default app;` |
-| `require('dotenv').config();` | `import 'dotenv/config';` |
+| `export const sumar = ...` | `import { sumar } from './math.js'` |
+| `export const sumar = ...` y `export const restar = ...` | `import { sumar, restar } from './math.js'` |
+| `export default app` | `import app from './app.js'` (cualquier nombre) |
 
 ### 1.7 Errores comunes
 
 | Error | Causa | Solución |
 |---|---|---|
 | `SyntaxError: Cannot use import statement outside a module` | Falta `"type": "module"`. | Agregarlo al `package.json`. |
-| `ReferenceError: require is not defined in ES module scope` | Se mezcló `require` con ESM. | Reemplazar por `import`. |
-| `Error [ERR_MODULE_NOT_FOUND]` en una ruta local | Falta la extensión `.js`. | `import x from './x.js'`. |
+| `ReferenceError: x is not defined` | Se usó una variable que nunca se importó. | Agregar el `import` correspondiente. |
+| `Error [ERR_MODULE_NOT_FOUND]` en una ruta local | Falta la extensión `.js`, o la ruta está mal (`./` en lugar de `../`). | `import x from '../carpeta/x.js'`. |
 | `SyntaxError: The requested module does not provide an export named 'x'` | Se importó con llaves algo que es default, o el nombre no coincide. | Revisar cómo se exportó. |
 | `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'dotenv'` | El paquete no está instalado. | `npm install dotenv`. |
 | `process.env.PORT` es `undefined` | Falta `import 'dotenv/config'` o el `.env` no está en la raíz del proyecto. | Agregar el import y revisar la ubicación del `.env`. |
@@ -143,47 +143,35 @@ app.js  ──import──▶  routes  ──import──▶  controllers  ─�
 
 ---
 
-## 2. Ejercicio fácil — "Migración a ES Modules"
+## 2. Ejercicio fácil — "Exports nombrados y por defecto"
 
-**Qué vas a practicar:** convertir código CommonJS a ESM, exports nombrados y por defecto.
+**Qué vas a practicar:** repartir funciones en archivos y conectarlas con exports **nombrados**, un export **por defecto** y un alias con `as`.
 
-**En el proyecto real:** muchos ejemplos de internet están escritos con `require`. Tenés que saber traducirlos, porque en los TP está prohibido.
+**En el proyecto real:** los controladores, modelos y middlewares del TP se exportan con exports nombrados (`export const createUser = ...`) y se importan con llaves en las rutas.
 
 ### Consigna
 
-Este proyecto está en CommonJS. Migralo a ES Modules **sin cambiar el resultado**.
+Tenés estas funciones **sueltas**, sin `export` ni `import`. Repartilas en archivos y conectalas.
 
 ```js
-// textos.js
 const capitalizar = (texto) => texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
 const contarPalabras = (texto) => texto.trim().split(' ').filter((p) => p !== '').length;
-module.exports = { capitalizar, contarPalabras };
-```
 
-```js
-// formateador.js
-const { capitalizar } = require('./textos');
 function formatearNombre(nombre, apellido) {
   return `${capitalizar(apellido)}, ${capitalizar(nombre)}`;
 }
-module.exports = formatearNombre;
-```
-
-```js
-// app.js
-const formatearNombre = require('./formateador');
-const { contarPalabras } = require('./textos');
-console.log(formatearNombre('aDa', 'LOVELACE'));
-console.log(contarPalabras('  hola   mundo node  '));
 ```
 
 ### Requisitos
 
-1. `"type": "module"` en el `package.json`.
-2. `textos.js` con **exports nombrados**.
-3. `formateador.js` con **export por defecto**.
-4. Todas las rutas locales con extensión `.js`.
-5. Ni un solo `require` ni `module.exports`.
+1. Proyecto con `npm init -y` y `"type": "module"` en el `package.json`.
+2. **`textos.js`**: `capitalizar` y `contarPalabras` con **exports nombrados**.
+3. **`formateador.js`**: `formatearNombre` con **export por defecto**. Necesita `capitalizar`: importala desde `textos.js`.
+4. **`app.js`**:
+   - Importá `formatearNombre` (export por defecto).
+   - Importá `contarPalabras` con el alias `contar` (`import { contarPalabras as contar } ...`) y usalo con ese nombre.
+   - Mostrá con `console.log` el resultado de `formatearNombre('aDa', 'LOVELACE')` y de `contar('  hola   mundo node  ')`.
+5. Todas las rutas locales con extensión `.js`.
 
 ### Cómo probarlo
 
@@ -307,7 +295,6 @@ export const totalConDescuento = (porcentaje) =>
 // app.js
 import 'dotenv/config';
 import totalConDescuento from './src/services/clientes.service.js';
-const os = require('node:os');
 
 const descuento = Number(process.env.DESCUENTO);
 
@@ -318,7 +305,7 @@ console.table(totalConDescuento(descuento));
 ### Pistas
 
 - Corregí **un problema por vez**: el siguiente mensaje recién aparece cuando arreglás el anterior.
-- Pensá en: la configuración del `package.json`, un paquete que nunca se instaló, una extensión faltante, un `require`, y default vs nombrado (en **dos** lugares).
+- Pensá en: la configuración del `package.json`, un paquete que nunca se instaló, una extensión faltante, un módulo integrado que se usa pero nunca se importó, y default vs nombrado (en **dos** lugares).
 
 ### Cómo probarlo
 
