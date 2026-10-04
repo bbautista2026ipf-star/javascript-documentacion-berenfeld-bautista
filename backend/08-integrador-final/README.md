@@ -1,95 +1,81 @@
-# Módulo 08 — Integrador final: Sistema de Gestión de Biblioteca
+# Módulo 08 — Integrador final: Recetario con autenticación
+
+> Ensayo general del **Trabajo Práctico Integrador I**: mismas tecnologías, misma estructura y mismos niveles de acceso, pero con otro dominio (recetas en lugar de artículos).
 
 ---
 
 ## 1. Conceptos principales
 
-### 1.1 Mapa de responsabilidades: qué aporta cada tecnología
+### 1.1 Qué aporta cada tecnología
 
-El integrador combina todo lo visto. La clave para no mezclar conceptos es saber **qué problema resuelve cada pieza** y **en qué capa vive**:
-
-| Tecnología | Problema que resuelve | Capa / ubicación |
+| Tecnología | Qué resuelve | Módulo |
 |---|---|---|
-| **Node.js** | Ejecutar JavaScript en el servidor con I/O no bloqueante. | Runtime de todo el proyecto. |
-| **ES Modules** | Organizar el código en módulos con `import`/`export`. | Todos los archivos. |
-| **dotenv** | Separar configuración y secretos del código. | `.env` + `src/config/`. |
-| **Sequelize** | Persistencia: modelos, relaciones y consultas sobre MySQL. | `src/models/`, `src/config/database.js`. |
-| **Express** | Servidor HTTP: rutas, middlewares, `req`/`res`. | `src/app.js`, `src/routes/`, `src/controllers/`. |
-| **express-validator** | Integridad de los datos de entrada (validación + sanitización). | `src/middlewares/validations/`, `validator.js`. |
-| **paranoid** | Eliminación lógica y restauración. | Opciones de los modelos. |
-| **bcryptjs** | Almacenar contraseñas como hash. | `src/helpers/bcrypt.helper.js`. |
-| **jsonwebtoken + cookie-parser** | Autenticación stateless en cada petición. | `src/helpers/jwt.helper.js`, `auth.middleware.js`. |
-| **Middlewares de autorización** | Decidir **qué** puede hacer el usuario autenticado. | `src/middlewares/authorization.middleware.js`. |
-| **cors** | Permitir que el frontend (otro origen) consuma la API con cookies. | `src/app.js`. |
-| **HTML / CSS / JS (fetch)** | Interfaz que consume la API (CSR). | `client/`. |
+| **Node.js + npm** | Ejecutar JavaScript en el servidor e instalar dependencias. | 01 |
+| **dotenv** | Leer la configuración (`.env`) sin escribirla en el código. | 01 |
+| **ES Modules** | Conectar todos los archivos con `import` / `export`. | 02 |
+| **Sequelize + mysql2** | Guardar los datos en MySQL: modelos, relaciones, consultas. | 03 |
+| **Express** | Servidor: rutas, controladores, `req` / `res`, códigos de estado. | 04 |
+| **express-validator** | Validar los datos que llegan antes de usarlos. | 05 |
+| **`paranoid` + `optional()`** | Eliminación lógica y rutas de actualización. | 06 |
+| **bcrypt** | Guardar las contraseñas como hash. | 07 |
+| **jsonwebtoken + cookie-parser** | Saber quién hace cada solicitud (token en una cookie). | 07 |
+| **Middlewares de autorización** | Decidir qué puede hacer cada usuario (admin / autor). | 07 |
+| **cors** | Permitir que un frontend consuma la API. | 04 / 07 |
 
-### 1.2 Ciclo de vida de una petición protegida
+En `backend/README.md` está el mapa de **qué carpeta del proyecto corresponde a cada tecnología**.
+
+### 1.2 Recorrido de una solicitud protegida
 
 ```mermaid
 flowchart TD
-    A[fetch del cliente<br/>credentials: include] --> B[cors]
-    B --> C[express.json + cookieParser]
-    C --> D[logger]
-    D --> E[Router: método + ruta]
-    E --> F[authMiddleware<br/>cookie → JWT → req.user]
-    F -->|sin token / inválido| X1[401]
-    F --> G[Reglas express-validator]
-    G --> H[validator]
-    H -->|errores| X2[400]
-    H --> I[Autorización<br/>rol / propiedad]
-    I -->|sin permiso| X3[403]
-    I -->|recurso inexistente| X4[404]
-    I --> J[Controlador<br/>matchedData → Sequelize]
-    J -->|éxito| K[200 / 201]
-    J -->|excepción| L[errorHandler → 500]
+    A[Solicitud] --> B[express.json / cookieParser / cors]
+    B --> C[Router: método + URL]
+    C --> D[authMiddleware]
+    D -->|sin token o inválido| X1[401]
+    D --> E[adminMiddleware / ownerMiddleware]
+    E -->|sin permiso| X2[403]
+    E -->|el recurso no existe| X3[404]
+    E --> F[Validaciones + validate]
+    F -->|datos inválidos| X4[400]
+    F --> G[Controlador: matchedData + Sequelize]
+    G -->|éxito| H[200 / 201]
+    G -->|error inesperado| I[500]
 ```
 
-Cada **rectángulo** es una responsabilidad aislada. Si un bug aparece, el **status code** indica en qué etapa buscar: `401` → autenticación, `400` → validación, `403` → autorización, `404` → existencia, `500` → controlador o base de datos.
+El **código de estado** indica en qué paso buscar un error: `401` → autenticación, `403` → autorización, `400` → validación, `404` → existencia, `500` → controlador o base de datos.
 
-### 1.3 Arquitectura del proyecto
+### 1.3 Estructura del proyecto
 
 ```
-biblioteca/
+recetario/
 ├── .env / .env.example / .gitignore
-├── package.json                 → "type": "module"
-├── client/                      → frontend (CSR)
-│   ├── index.html
-│   ├── style.css
-│   └── js/
-│       ├── api.js               → apiFetch centralizado
-│       └── app.js
+├── package.json          → "type": "module", script "dev"
+├── app.js                → middlewares globales, rutas, conexión y listen
 └── src/
-    ├── app.js                   → configuración de Express y arranque
     ├── config/database.js
-    ├── models/
-    │   ├── *.model.js           → modelos sin relaciones
-    │   └── index.js             → asociaciones
-    ├── routes/
-    │   ├── *.routes.js
-    │   └── index.js
-    ├── controllers/
-    ├── services/                → reglas de negocio complejas (préstamos)
-    ├── helpers/                 → bcrypt, jwt
+    ├── models/           → un archivo por modelo + index.js con relaciones
+    ├── routes/           → un archivo por recurso
+    ├── controllers/      → un archivo por recurso
     ├── middlewares/
     │   ├── auth.middleware.js
-    │   ├── authorization.middleware.js
-    │   ├── validator.js
-    │   ├── errorHandler.js
-    │   └── validations/
-    └── seed.js
+    │   ├── admin.middleware.js
+    │   ├── owner.middleware.js
+    │   ├── validate.middleware.js
+    │   └── validations/  → un archivo de reglas por recurso
+    └── helpers/
+        ├── jwt.helper.js
+        └── bcrypt.helper.js
 ```
 
-**Controlador vs servicio:** cuando una operación tiene **reglas de negocio** que combinan varias entidades (un préstamo verifica stock, límite de préstamos del socio, estado del libro), esa lógica va a un **servicio** que no conoce `req`/`res`. El controlador solo traduce HTTP ↔ servicio. Así la regla se puede reutilizar y testear sin servidor.
-
-### 1.4 Modelo de datos del dominio
+### 1.4 Modelo de datos
 
 ```mermaid
 erDiagram
-    USERS ||--o| PROFILES : tiene
-    USERS ||--o{ LOANS : solicita
-    AUTHORS ||--o{ BOOKS : escribe
-    BOOKS }o--o{ GENRES : "book_genres"
-    BOOKS ||--o{ LOANS : "es prestado en"
+    USERS ||--|| PROFILES : "1:1"
+    USERS ||--o{ RECIPES : "1:N"
+    RECIPES }o--o{ INGREDIENTS : "N:M"
+    RECIPES ||--o{ RECIPE_INGREDIENTS : ""
+    INGREDIENTS ||--o{ RECIPE_INGREDIENTS : ""
 
     USERS {
         int id PK
@@ -97,274 +83,201 @@ erDiagram
         string email
         string password
         enum role
+        date deleted_at
     }
     PROFILES {
         int id PK
-        string full_name
-        string dni
-        string phone
         int user_id FK
+        string first_name
+        string last_name
+        text biography
     }
-    AUTHORS {
-        int id PK
-        string name
-        string nationality
-    }
-    BOOKS {
+    RECIPES {
         int id PK
         string title
-        string isbn
-        int published_year
-        int total_copies
-        int author_id FK
-        date deletedAt
+        text instructions
+        int minutes
+        enum status
+        int user_id FK
     }
-    GENRES {
+    INGREDIENTS {
         int id PK
         string name
     }
-    LOANS {
+    RECIPE_INGREDIENTS {
         int id PK
-        int user_id FK
-        int book_id FK
-        date loan_date
-        date due_date
-        date return_date
-        enum status
+        int recipe_id FK
+        int ingredient_id FK
     }
 ```
 
-| Relación | Tipo | FK | Alias |
-|---|---|---|---|
-| User — Profile | 1:1 | `profiles.user_id` | `profile` / `user` |
-| Author — Book | 1:N | `books.author_id` | `books` / `author` |
-| Book — Genre | N:M | `book_genres.book_id`, `book_genres.genre_id` | `genres` / `books` |
-| User — Loan | 1:N | `loans.user_id` | `loans` / `user` |
-| Book — Loan | 1:N | `loans.book_id` | `loans` / `book` |
+| Relación | Tipo | Alias |
+|---|---|---|
+| User — Profile | 1:1 | `profile` / `user` |
+| User — Recipe | 1:N | `recipes` / `author` |
+| Recipe — Ingredient (a través de RecipeIngredient) | N:M | `ingredients` / `recipes` |
 
-`Loan` es una entidad propia (no una tabla intermedia pura) porque tiene **ciclo de vida**: se crea, vence, se devuelve.
+**Eliminación:** `User` lógica (`paranoid`). `Recipe → RecipeIngredient` en cascada (al eliminar una receta se eliminan sus asociaciones con ingredientes). `User → Profile` en cascada.
 
-### 1.5 Reglas de negocio del dominio
-
-1. Roles: `member` (socio) y `librarian` (bibliotecario). Solo un `librarian` gestiona libros, autores, géneros y préstamos ajenos.
-2. Un libro tiene `total_copies`. Las **copias disponibles** = `total_copies` − préstamos con `status: 'active'`. **No se almacena**: se **calcula** (evita datos inconsistentes).
-3. Un socio puede tener **como máximo 3 préstamos activos** y **ninguno vencido** para pedir otro.
-4. Un préstamo dura **14 días**. Está **vencido** si `status === 'active'` y `due_date < hoy`.
-5. Los libros se eliminan **lógicamente**. No se puede eliminar un libro con préstamos activos.
-6. Un socio solo ve **sus** préstamos; un bibliotecario ve todos.
-
-### 1.6 Flujo de trabajo con Git
-
-Siguiendo el esquema de las prácticas de la cátedra:
+### 1.5 Flujo de Git (igual que el TP)
 
 ```mermaid
 gitGraph
-    commit id: "chore: se inicializó el proyecto"
+    commit id: "docs: README inicial"
     branch develop
     checkout develop
-    branch etapa-1-modelos
-    commit id: "feat: se crearon los modelos"
-    commit id: "feat: se definieron las relaciones"
-    commit id: "feat: se añadieron rutas públicas"
+    branch proyecto-integrador
+    commit id: "chore: configuracion inicial"
+    commit id: "feat: modelos y relaciones"
+    commit id: "feat: CRUD"
+    commit id: "feat: autenticacion"
     checkout develop
-    merge etapa-1-modelos
-    branch etapa-2-auth
-    commit id: "feat: se implementó login con JWT"
-    checkout develop
-    merge etapa-2-auth
+    merge proyecto-integrador
     checkout main
     merge develop
 ```
 
-- Una rama por etapa, creada desde `develop`.
-- Mínimo **3 commits** por etapa con prefijo convencional (`feat:`, `fix:`, `docs:`, `chore:`).
-- Al terminar cada etapa: merge limpio `etapa → develop` y luego `develop → main`.
+- Rama `main` con un README inicial → rama `develop` desde `main` → rama `proyecto-integrador` desde `develop`.
+- Mínimo **10 commits** en `proyecto-integrador`, con mensajes claros (`feat:`, `fix:`, `docs:`, `chore:`).
+- Al terminar: merge `proyecto-integrador → develop` y después `develop → main`.
 
-### 1.7 Errores de integración más frecuentes
+### 1.6 Lista de control (criterios del TP)
 
-| Síntoma | Causa probable |
-|---|---|
-| Todo devuelve `401` desde el navegador, pero funciona en Thunder Client | Falta `credentials: 'include'`, CORS mal configurado o `localhost` vs `127.0.0.1`. |
-| `SequelizeEagerLoadingError` | Alias del `include` distinto al de `models/index.js`, o se importó el modelo directo del archivo y no desde `index.js`. |
-| Un socio puede ver préstamos ajenos | La consulta no filtra por `req.user.id`. |
-| El stock queda negativo con dos préstamos simultáneos | La verificación y la creación no están en la misma **transacción**. |
-| `password` aparece en algún `include` | Falta `defaultScope` o `attributes` en un nivel anidado. |
-| Libro eliminado aparece en préstamos | Correcto: el historial se conserva. Pero en el catálogo **no** debe aparecer. |
+- [ ] `try/catch` en todos los controladores.
+- [ ] Carpetas `config`, `models`, `routes`, `controllers`, `middlewares`, `helpers`.
+- [ ] Solo `import` / `export`.
+- [ ] Validaciones con express-validator en todas las rutas que reciben datos o ids.
+- [ ] Códigos `201`, `200`, `400`, `401`, `403`, `404`, `500` donde corresponde.
+- [ ] Unicidad al crear **y** al editar. Existencia antes de editar o eliminar.
+- [ ] JWT en cookie `httpOnly`; contraseñas con bcrypt; nunca se devuelve `password`.
+- [ ] Relaciones 1:1, 1:N y N:M en los dos sentidos, con alias.
+- [ ] Eliminación en cascada en al menos dos relaciones y eliminación lógica en al menos un modelo.
 
 ---
 
-## 2. Ejercicio fácil — Etapa 1: "Catálogo público"
+## 2. Ejercicio fácil — Etapa 1: "Proyecto, modelos y relaciones"
 
-**Qué vas a practicar:** montar el proyecto completo desde cero con todas las capas, modelos, relaciones (1:1, 1:N, N:M), seed y rutas públicas con validación.
+**Qué vas a practicar:** armar el proyecto desde cero y dejar la base de datos lista (módulos 01, 02 y 03).
 
 ### Consigna
 
-1. Rama `etapa-1-catalogo` desde `develop`.
-2. Proyecto con la arquitectura de la sección 1.3 (sin `client/` todavía). Dependencias: `express`, `sequelize`, `mysql2`, `dotenv`, `cors`, `express-validator`.
-3. Todos los modelos de la sección 1.4 con sus validaciones de modelo. `Book` con `paranoid: true`. `User.role` como `ENUM('member', 'librarian')`, por defecto `'member'`.
-4. Todas las asociaciones en `models/index.js`, en pares, con alias de la tabla 1.4. Índice único compuesto en `book_genres`.
-5. `src/seed.js` (con `sync({ force: true })`): 4 autores, 5 géneros, 10 libros (con 1 a 3 géneros cada uno), 1 bibliotecario y 3 socios con perfil. (Por ahora las contraseñas pueden quedar en texto plano: en la etapa 2 el seed las hasheará.)
-6. Rutas **públicas**:
+1. Repositorio `recetario` con README en `main`, rama `develop` y rama `proyecto-integrador`.
+2. `npm init`, `"type": "module"` e instalación de: `express sequelize mysql2 cors dotenv jsonwebtoken bcrypt cookie-parser express-validator`.
+3. `.env` (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`, `PORT`), `.env.example` y `.gitignore`.
+4. `src/config/database.js` y `app.js` con `express.json()`, `cookieParser()` y `cors()`, que conecte la base de datos antes de escuchar.
+5. Modelos:
 
-| Método | Ruta | Detalle |
-|---|---|---|
-| `GET` | `/api/books` | Libros con autor (`name`) y géneros (`name`, sin tabla intermedia). Filtros opcionales: `?genre=<nombre>`, `?author=<id>`, `?q=<texto en título>`. |
-| `GET` | `/api/books/:id` | Libro con autor y géneros. |
-| `GET` | `/api/authors` | Autores con la **cantidad** de libros. |
-| `GET` | `/api/authors/:id` | Autor con sus libros (`id`, `title`). |
-| `GET` | `/api/genres` | Géneros. |
+| Modelo | Campos |
+|---|---|
+| `User` | `username` (`STRING(20)`, único), `email` (`STRING(100)`, único), `password` (`STRING(255)`), `role` (`ENUM('user', 'admin')`, default `user`). `paranoid: true`. |
+| `Profile` | `user_id` (único), `first_name`, `last_name` (`STRING(50)`), `biography` (`TEXT`, opcional) |
+| `Recipe` | `title` (`STRING(150)`), `instructions` (`TEXT`), `minutes` (`INTEGER`), `status` (`ENUM('published', 'draft')`, default `published`), `user_id` |
+| `Ingredient` | `name` (`STRING(40)`, único) |
+| `RecipeIngredient` | `id`, `recipe_id`, `ingredient_id` + índice único sobre ambos |
 
-7. Validaciones: `:id` entero positivo y existente; `author` entero; `q` mínimo 2 caracteres.
-8. Middlewares `notFound` y `errorHandler` globales; controladores con `try/catch` que delegan con `next(error)`.
+6. Relaciones en `src/models/index.js` según la tabla 1.4, con cascada en `User → Profile` y en `Recipe → RecipeIngredient`.
 
 ### Cómo probarlo
 
-`node src/seed.js` y luego `npm run dev`.
-
-| # | Petición | Status | Verificar |
-|---|---|---|---|
-| 1 | `GET /api/books` | `200` | 10 libros con `author` y `genres` |
-| 2 | `GET /api/books?genre=fantasía` | `200` | Todos tienen ese género |
-| 3 | `GET /api/books?q=a` | `400` | |
-| 4 | `GET /api/books/1` | `200` | Sin `BookGenre` en `genres` |
-| 5 | `GET /api/books/999` | `400` o `404` (según tu convención) | |
-| 6 | `GET /api/authors` | `200` | Cada autor con su cantidad de libros |
-| 7 | `GET /api/authors/1` | `200` | Lista de libros del autor |
-| 8 | `GET /api/xyz` | `404` | |
-
-Cerrá la etapa: 3+ commits, merge a `develop` y a `main`.
+- `npm run dev` muestra que la conexión se estableció.
+- En MySQL existen las 5 tablas; `Profiles` tiene `user_id`, `Recipes` tiene `user_id`, `RecipeIngredients` tiene `recipe_id` e `ingredient_id`, y `Users` tiene la columna de eliminación lógica.
+- Al menos **3 commits** en `proyecto-integrador`.
 
 ---
 
-## 3. Ejercicio medio — Etapa 2: "Autenticación y gestión del catálogo"
+## 3. Ejercicio medio — Etapa 2: "CRUD con validaciones"
 
-**Qué vas a practicar:** registro/login con bcrypt y JWT en cookie, autorización por rol, CRUD protegido con validaciones de creación y actualización, y eliminación lógica.
+**Qué vas a practicar:** rutas, controladores y validaciones de todos los recursos (módulos 04, 05 y 06). **Todavía sin autenticación**: las rutas son públicas.
 
 ### Consigna
 
-1. Rama `etapa-2-auth` desde `develop`.
-2. El seed ahora **hashea** las contraseñas.
-3. **Autenticación:**
+| Recurso | Endpoints |
+|---|---|
+| Users | `GET /api/users` (con perfil), `GET /api/users/:id` (con perfil y recetas), `POST /api/users` (crea usuario + perfil), `PUT /api/users/:id`, `DELETE /api/users/:id` (lógica) |
+| Ingredients | `POST`, `GET`, `GET /:id` (con sus recetas), `PUT /:id`, `DELETE /:id` en `/api/ingredients` |
+| Recipes | `POST /api/recipes` (con `user_id` en el body, por ahora), `GET /api/recipes` (solo `published`, con autor e ingredientes), `GET /api/recipes/:id`, `PUT /api/recipes/:id`, `DELETE /api/recipes/:id` |
+| RecipeIngredients | `POST /api/recipes-ingredients` (asocia), `DELETE /api/recipes-ingredients/:id` (quita) |
 
-| Método | Ruta | Detalle |
-|---|---|---|
-| `POST` | `/api/auth/register` | Crea `User` + `Profile` (`full_name`, `dni` de 8 dígitos único, `phone` opcional) en una **transacción**. Siempre rol `member`. |
-| `POST` | `/api/auth/login` | Cookie `httpOnly` con JWT `{ id, role }`. |
-| `POST` | `/api/auth/logout` | Borra la cookie. |
-| `GET` | `/api/auth/me` | Usuario con perfil, sin hash. |
+**Validaciones:**
 
-4. **Gestión del catálogo** (solo `librarian`):
-
-| Método | Ruta | Validaciones clave |
-|---|---|---|
-| `POST` | `/api/books` | `title`, `isbn` único (incluyendo eliminados), `published_year` ≤ año actual, `total_copies` ≥ 1, `author_id` existente, `genre_ids` array no vacío, sin repetidos, todos existentes. |
-| `PUT` | `/api/books/:id` | Todo opcional + `matchedData`. `isbn` único excluyendo el propio. Si viene `genre_ids`, reemplaza los géneros (`setGenres`). |
-| `DELETE` | `/api/books/:id` | Eliminación lógica. |
-| `GET` | `/api/books/deleted` | Libros eliminados. |
-| `PATCH` | `/api/books/:id/restore` | Restaura. |
-| `POST` / `PUT` / `DELETE` | `/api/authors`, `/api/authors/:id` | No se puede eliminar un autor con libros (`400` con mensaje claro). |
-| `POST` | `/api/genres` | Nombre único, guardado en minúsculas. |
-
-5. Formato de errores de validación uniforme: `{ message, errors: { campo: mensaje } }`.
+| Recurso | Reglas |
+|---|---|
+| User | `username` 3-20 alfanumérico único · `email` válido único · `password` 8+ con mayúscula, minúscula y número · `role` `user`/`admin` · `first_name`/`last_name` 2-50 solo letras · `biography` máx. 500 |
+| Ingredient | `name` 2-40, sin espacios, único |
+| Recipe | `title` 3-150 · `instructions` mín. 30 · `minutes` entero entre 1 y 600 · `status` `published`/`draft` · `user_id` existe |
+| RecipeIngredient | `recipe_id` e `ingredient_id` existen · la combinación no se repite |
+| Todas | ids de `params` enteros positivos que existan · en `PUT`, campos `optional()`, unicidad excluyendo el propio registro y `matchedData(req, { locations: ['body'] })` |
 
 ### Cómo probarlo
 
-| # | Prueba | Status |
+| # | Petición | Status |
 |---|---|---|
-| 1 | `POST /api/books` sin cookie | `401` |
-| 2 | `POST /api/books` con cookie de `member` | `403` |
-| 3 | `POST /api/books` como `librarian` con `genre_ids: [1, 1]` | `400` |
-| 4 | `POST /api/books` como `librarian` válido | `201` |
-| 5 | `PUT /api/books/:id` con solo `{ "total_copies": 5 }` | `200`, lo demás intacto |
-| 6 | `PUT /api/books/:id` con `genre_ids: [2]` | `200`, ahora tiene un solo género |
-| 7 | `DELETE /api/books/:id` y `GET /api/books` | `200` / no aparece |
-| 8 | `POST /api/books` con el ISBN del libro eliminado | `400` |
-| 9 | `PATCH /api/books/:id/restore` | `200` y vuelve al catálogo |
-| 10 | `DELETE /api/authors/1` (tiene libros) | `400` |
-| 11 | `POST /api/auth/register` con `dni` repetido | `400` y **no** se creó el `User` (transacción) |
-| 12 | `GET /api/auth/me` | `200`, con `profile`, sin `password` |
+| 1 | `POST /api/users` válido | `201` |
+| 2 | `POST /api/users` con `username` repetido | `400` |
+| 3 | `GET /api/users` | `200`, con `profile`, sin `password` |
+| 4 | `POST /api/ingredients` `{ "name": "harina integral" }` | `400` |
+| 5 | `POST /api/recipes` con `minutes: 0` | `400` |
+| 6 | `POST /api/recipes-ingredients` válido y repetido | `201` / `400` |
+| 7 | `GET /api/recipes` | `200`, con `author` e `ingredients` (sin columnas de la tabla intermedia) |
+| 8 | `PUT /api/recipes/1` `{ "minutes": 45 }` | `200` |
+| 9 | `PUT /api/ingredients/1` con el nombre de otro ingrediente | `400` |
+| 10 | `DELETE /api/recipes/1` | `200`, y no quedan filas en `RecipeIngredients` con `recipe_id = 1` |
+| 11 | `DELETE /api/users/1` y `GET /api/users` | `200` / el usuario 1 ya no aparece (pero sigue en MySQL) |
 
-Cerrá la etapa: 3+ commits, merge a `develop` y a `main`.
+Al menos **3 commits más** en `proyecto-integrador`.
 
 ---
 
-## 4. Ejercicio difícil — Etapa 3: "Préstamos, reportes y cliente web"
+## 4. Ejercicio difícil — Etapa 3: "Autenticación y niveles de acceso"
 
-**Qué vas a practicar:** reglas de negocio reales en una capa de servicios, transacciones, autorización por propiedad, valores calculados, reportes con agregación y un frontend completo que consume la API con cookies.
+**Qué vas a practicar:** cerrar el proyecto con bcrypt, JWT en cookie y los tres middlewares de acceso (módulo 07), aplicados a **todas** las rutas de la etapa 2.
 
-### Consigna — Préstamos (`src/services/loan.service.js`)
+### Consigna
 
-1. Rama `etapa-3-prestamos` desde `develop`.
-2. Modelo `Loan`: `loan_date` (hoy), `due_date` (hoy + 14 días), `return_date` (null), `status` (`ENUM('active', 'returned')`).
-3. Endpoints:
+1. Helpers `jwt.helper.js` y `bcrypt.helper.js`. Middlewares `auth`, `admin` y `owner` (el `ownerMiddleware` verifica la **receta**).
+2. Rutas de autenticación:
 
-| Método | Ruta | Quién | Regla |
-|---|---|---|---|
-| `POST` | `/api/loans` | `member` (para sí mismo) o `librarian` (indicando `user_id`) | Ver reglas abajo. `201`. |
-| `GET` | `/api/loans` | `member`: solo los suyos. `librarian`: todos, con filtros `?status=active\|returned\|overdue` y `?user_id=`. | Cada préstamo incluye libro (`title`), socio (`username`) y un campo calculado `is_overdue`. |
-| `PATCH` | `/api/loans/:id/return` | `librarian` | Marca `returned` con `return_date` = hoy. `400` si ya estaba devuelto. |
-| `GET` | `/api/books/:id/availability` | Público | `{ total_copies, active_loans, available }` |
-
-**Reglas de `createLoan` (todas dentro de una transacción):**
-- El libro existe y **no está eliminado**.
-- Hay al menos **una copia disponible** (calculada).
-- El socio tiene **menos de 3** préstamos activos.
-- El socio **no tiene** préstamos vencidos.
-- El socio **no tiene ya** un préstamo activo **del mismo libro**.
-- Cada regla incumplida lanza un error con mensaje específico; el controlador lo traduce a `400`.
-
-4. Un `member` que envía `user_id` en el body **se ignora**: siempre se usa `req.user.id`.
-5. No se puede eliminar un libro con préstamos activos (`400`). Agregá esta regla al `DELETE /api/books/:id` de la etapa 2.
-
-### Consigna — Reportes (solo `librarian`)
-
-| Ruta | Respuesta |
+| Ruta | Acceso |
 |---|---|
-| `GET /api/reports/top-books?limit=5` | Libros más prestados de la historia: `[{ id, title, author, total_loans }]`, ordenados desc. |
-| `GET /api/reports/overdue` | Préstamos vencidos con socio (`username`, `full_name`, `phone`), libro y **días de atraso**. |
-| `GET /api/reports/members/:id` | Resumen de un socio: total de préstamos, activos, vencidos, devueltos fuera de término. |
+| `POST /api/auth/register` (usuario + perfil, contraseña hasheada) | Público |
+| `POST /api/auth/login` (token en cookie `httpOnly`) | Público |
+| `GET /api/auth/profile` | Autenticado |
+| `PUT /api/auth/profile` | Autenticado |
+| `POST /api/auth/logout` | Autenticado |
 
-### Consigna — Cliente web (`client/`)
+3. Niveles de acceso para las rutas de la etapa 2:
 
-1. **Catálogo** público con buscador (`q`) y filtro por género; cada libro muestra disponibilidad.
-2. **Login / registro / logout**.
-3. **Socio:** botón **Pedir prestado** (solo si hay disponibilidad); sección **Mis préstamos** con los vencidos resaltados en rojo.
-4. **Bibliotecario:** panel con préstamos activos y botón **Registrar devolución**; listado de vencidos; top 5 de libros.
-5. Todos los errores de la API se muestran en pantalla con su mensaje.
-6. `apiFetch` centralizado con `credentials: 'include'`; si recibe `401`, vuelve a la vista de login.
-7. HTML semántico y CSS propio responsivo (debe verse bien a 375 px de ancho).
+| Rutas | Acceso |
+|---|---|
+| Todo `/api/users` | Solo admin (`POST` y `PUT` hashean la contraseña) |
+| `POST`, `PUT`, `DELETE` de `/api/ingredients` y `GET /api/ingredients/:id` | Solo admin |
+| `GET /api/ingredients` | Usuario autenticado |
+| `POST /api/recipes` | Usuario autenticado. El autor es `req.user.id` (se quita `user_id` del body y de las validaciones). |
+| `GET /api/recipes`, `GET /api/recipes/:id` | Usuario autenticado |
+| `GET /api/recipes/user` | Usuario autenticado: solo **sus** recetas publicadas |
+| `PUT /api/recipes/:id`, `DELETE /api/recipes/:id` | Solo autor o admin |
+| `POST /api/recipes-ingredients`, `DELETE /api/recipes-ingredients/:id` | Solo el autor de la receta |
 
-### Desafío extra (opcional)
-
-- **Concurrencia:** simulá dos préstamos simultáneos del último ejemplar (`Promise.all` con dos `fetch`). Si ambos se crean, tu transacción no está bloqueando: investigá `transaction.LOCK.UPDATE` en la consulta del libro.
-- **Tests automatizados** con el test runner nativo de Node (`node --test`) para `loan.service.js`.
+> Ojo con el orden de las rutas: `GET /api/recipes/user` debe declararse **antes** que `GET /api/recipes/:id`, si no Express interpreta `user` como un id.
 
 ### Cómo probarlo
 
-Preparación: libro A con `total_copies: 1`, libro B con `total_copies: 5`. Socios `ana` y `beto`. Para simular un vencimiento, modificá a mano el `due_date` de un préstamo en la base de datos.
+Usuarios: `admin`, `ana` y `beto`. Ana es autora de la receta 1.
 
-| # | Prueba | Status / resultado |
-|---|---|---|
-| 1 | ana pide el libro A | `201` |
-| 2 | beto pide el libro A | `400` — sin copias disponibles |
-| 3 | `GET /api/books/A/availability` | `{ total_copies: 1, active_loans: 1, available: 0 }` |
-| 4 | ana pide el libro A otra vez | `400` — ya lo tiene |
-| 5 | ana pide 2 libros más y luego un cuarto | `201`, `201`, `400` — límite de 3 |
-| 6 | beto pide el libro B enviando `"user_id": <id de ana>` | `201`, el préstamo es de **beto** |
-| 7 | Vencer a mano el préstamo de beto; beto pide otro libro | `400` — tiene préstamos vencidos |
-| 8 | `GET /api/loans` como beto | Solo los suyos, uno con `is_overdue: true` |
-| 9 | `GET /api/loans?status=overdue` como librarian | Solo vencidos |
-| 10 | `PATCH /api/loans/:id/return` como beto | `403` |
-| 11 | `PATCH /api/loans/:id/return` como librarian (préstamo del libro A) | `200`; disponibilidad de A vuelve a `1` |
-| 12 | Repetir #11 | `400` — ya devuelto |
-| 13 | `DELETE /api/books/B` con préstamos activos | `400` |
-| 14 | `GET /api/reports/overdue` | El préstamo de beto con días de atraso > 0 |
-| 15 | `GET /api/reports/top-books?limit=3` como member | `403` |
-| 16 | Flujo completo en el navegador: registrarse → loguearse → pedir libro → ver "Mis préstamos" → logout | Sin errores en consola |
-| 17 | Bibliotecario en el navegador registra la devolución | El catálogo actualiza la disponibilidad |
+| # | Sesión | Petición | Status |
+|---|---|---|---|
+| 1 | Ninguna | `GET /api/recipes` | `401` |
+| 2 | — | `POST /api/auth/register` | `201`, contraseña hasheada en MySQL |
+| 3 | — | `POST /api/auth/login` incorrecto | `401` |
+| 4 | ana | `GET /api/auth/profile` | `200`, sin `password` |
+| 5 | ana | `GET /api/users` | `403` |
+| 6 | admin | `GET /api/users` | `200` |
+| 7 | ana | `POST /api/ingredients` | `403` |
+| 8 | beto | `POST /api/recipes` con `"user_id": <id de ana>` | `201`, la receta es de **beto** |
+| 9 | beto | `PUT /api/recipes/1` | `403` |
+| 10 | admin | `PUT /api/recipes/1` | `200` |
+| 11 | beto | `POST /api/recipes-ingredients` con `recipe_id: 1` | `403` |
+| 12 | ana | `GET /api/recipes/user` | `200`, solo las de ana |
+| 13 | ana | `POST /api/auth/logout` y luego `GET /api/recipes` | `200` / `401` |
 
-**Criterio de aprobación final:**
-- Las 17 pruebas pasan y las de las etapas 1 y 2 siguen pasando (sin regresiones).
-- Las reglas de préstamo viven en `loan.service.js`, no en el controlador.
-- Ninguna respuesta expone contraseñas ni datos innecesarios.
-- Historial de Git con las 3 ramas de etapa, 9+ commits convencionales y `main` sincronizada con `develop`.
+**Criterio de cierre:** las pruebas de las tres etapas pasan, la lista de control 1.6 está completa, hay 10+ commits y `main` quedó sincronizada con `develop`.
