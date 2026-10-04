@@ -366,30 +366,45 @@ import { generateToken, verifyToken } from './helpers/jwt.helper.js';
 const hash1 = await hashPassword('Clave1234');
 const hash2 = await hashPassword('Clave1234');
 
-console.assert(hash1 !== 'Clave1234', 'El hash no puede ser igual a la contraseña');
-// TODO: verificá que hash1 y hash2 sean DISTINTOS (por el salt)
-// TODO: verificá que comparePassword('Clave1234', hash1) sea true
-// TODO: verificá que comparePassword('otraClave', hash1) sea false
+console.log(`Hash de la contraseña → ${hash1}`);
+console.log(`¿El hash es distinto de la contraseña? → esperado: true | obtenido: ${hash1 !== 'Clave1234'}`);
+// TODO: mostrá con console.log si hash1 y hash2 son distintos (esperado: true, por el salt)
+// TODO: mostrá el resultado de comparePassword('Clave1234', hash1) (esperado: true)
+// TODO: mostrá el resultado de comparePassword('otraClave', hash1) (esperado: false)
 
 // ---------- JWT ----------
 const token = generateToken({ id: 7, username: 'ana', role: 'user' });
 
-console.assert(token.split('.').length === 3, 'El token debe tener 3 partes');
-// TODO: verificá que verifyToken(token) devuelva un objeto con id === 7 y role === 'user'
+console.log(`Token → ${token}`);
+console.log(`Partes del token → esperado: 3 | obtenido: ${token.split('.').length}`);
+// TODO: guardá verifyToken(token) en una variable y mostrá su id (esperado: 7) y su role (esperado: user)
 
 // Token alterado: se cambia el primer carácter de la firma
 const [header, payload, firma] = token.split('.');
 const alterado = `${header}.${payload}.${firma.startsWith('A') ? 'B' : 'A'}${firma.slice(1)}`;
-// TODO: verificá que verifyToken(alterado) LANCE un error (usá try/catch)
-
-console.log('Laboratorio finalizado');
+// TODO: llamá a verifyToken(alterado) dentro de un try/catch.
+//       En el try mostrá "Token alterado → se aceptó (algo está mal)".
+//       En el catch mostrá `Token alterado → esperado: un error | obtenido: ${error.message}`.
 ```
 
 4. Al final de `lab.js`, respondé en un comentario: ¿por qué dos hashes de la **misma** contraseña son distintos, pero `comparePassword` igual da `true`?
 
 ### Cómo probarlo
 
-`node src/lab.js` → solo debe aparecer `Laboratorio finalizado`. Cualquier `Assertion failed` indica un `TODO` incompleto o incorrecto.
+Ejecutá `node src/lab.js` y revisá que en cada línea el valor **obtenido** coincida con el **esperado**. La salida debería verse parecida a esto (los hashes y el token cambian en cada ejecución):
+
+```
+Hash de la contraseña → $2b$10$Zx8...
+¿El hash es distinto de la contraseña? → esperado: true | obtenido: true
+¿hash1 y hash2 son distintos? → esperado: true | obtenido: true
+comparePassword con la contraseña correcta → esperado: true | obtenido: true
+comparePassword con otra contraseña → esperado: false | obtenido: false
+Token → eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Partes del token → esperado: 3 | obtenido: 3
+id del token → esperado: 7 | obtenido: 7
+role del token → esperado: user | obtenido: user
+Token alterado → esperado: un error | obtenido: Error verificando el token: invalid signature
+```
 
 ---
 

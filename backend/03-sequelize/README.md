@@ -326,23 +326,23 @@ En MySQL: `CREATE DATABASE crud_sequelize;`. En `package.json`: `"type": "module
 
 ### Cómo probarlo
 
-Agregá antes de cerrar la conexión:
+Agregá esto antes de cerrar la conexión y compará cada valor obtenido con el esperado:
 
 ```js
 const todas = await TagModel.findAll();
-console.assert(todas.length === 2, `Se esperaban 2 etiquetas y hay ${todas.length}`);
+console.log(`Cantidad de etiquetas → esperado: 2 | obtenido: ${todas.length}`);
 
 const primera = await TagModel.findByPk(1);
-console.assert(primera.name === 'js', 'La etiqueta 1 debería llamarse js');
+console.log(`Nombre de la etiqueta 1 → esperado: js | obtenido: ${primera.name}`);
 
 const eliminada = await TagModel.findByPk(3);
-console.assert(eliminada === null, 'La etiqueta 3 debería estar eliminada');
+console.log(`Etiqueta 3 → esperado: null | obtenido: ${eliminada}`);
 
 try {
   await TagModel.create({ name: 'node' });
-  console.assert(false, 'No debería permitir un nombre repetido');
+  console.log('Nombre repetido → esperado: un error | obtenido: se creó (algo está mal)');
 } catch (error) {
-  console.assert(error.name === 'SequelizeUniqueConstraintError', 'Se esperaba un error de unicidad');
+  console.log(`Nombre repetido → esperado: SequelizeUniqueConstraintError | obtenido: ${error.name}`);
 }
 ```
 
@@ -400,17 +400,17 @@ src/
 
 ### Cómo probarlo
 
-Al final de `consultas.js`:
+Al final de `consultas.js`, y compará cada valor obtenido con el esperado:
 
 ```js
 const user1 = await UserModel.findByPk(1, { include: [{ model: PostModel, as: 'posts' }] });
-console.assert(user1.posts.length === 3, 'El usuario 1 debe tener 3 posts');
+console.log(`Posts del usuario 1 → esperado: 3 | obtenido: ${user1.posts.length}`);
 
 const user2 = await UserModel.findByPk(2, { include: [{ model: ProfileModel, as: 'profile' }] });
-console.assert(user2.profile !== null, 'El usuario 2 debe tener perfil');
+console.log(`Nombre en el perfil del usuario 2 → esperado: el que cargaste | obtenido: ${user2.profile.first_name}`);
 
 const post = await PostModel.findByPk(1, { include: [{ model: UserModel, as: 'author' }] });
-console.assert(post.author.username !== undefined, 'El post debe incluir a su autor');
+console.log(`Autor del post 1 → esperado: el username del usuario 1 | obtenido: ${post.author.username}`);
 ```
 
 En la base de datos: `Profiles` y `Posts` tienen la columna `user_id`.
@@ -454,23 +454,27 @@ Continuá el proyecto del ejercicio medio y agregá:
 
 ### Cómo probarlo
 
+Agregá estas líneas en los pasos indicados y compará cada valor obtenido con el esperado:
+
 ```js
+// después del paso 4
 const posts = await PostModel.findAll({
   include: [{ model: TagModel, as: 'tags', attributes: ['name'], through: { attributes: [] } }],
 });
-console.assert(posts[0].tags.length === 2, 'El post 1 debe tener 2 etiquetas');
-console.assert(posts[0].tags[0].PostTag === undefined, 'No deben aparecer columnas de PostTag');
+console.log(`Etiquetas del post 1 → esperado: 2 | obtenido: ${posts[0].tags.length}`);
+console.log(`Datos de una etiqueta → esperado: {"name":"..."} (sin PostTag) | obtenido: ${JSON.stringify(posts[0].tags[0])}`);
 
+// después del paso 5
 const tag2 = await TagModel.findByPk(2, { include: [{ model: PostModel, as: 'posts' }] });
-console.assert(tag2.posts.length === 2, 'La etiqueta 2 debe estar en 2 posts');
+console.log(`Posts con la etiqueta 2 → esperado: 2 | obtenido: ${tag2.posts.length}`);
 
-// después de eliminar el post 1
-const filasPost1 = await PostTagModel.count({ where: { post_id: 1 } });
-console.assert(filasPost1 === 0, 'Las filas de PostTag del post 1 deben eliminarse en cascada');
+// después del paso 6
+const filasPost1 = await PostTagModel.findAll({ where: { post_id: 1 } });
+console.log(`Filas de PostTag del post 1 → esperado: 0 | obtenido: ${filasPost1.length}`);
 
-// después de eliminar el usuario
-const postsRestantes = await PostModel.count();
-console.assert(postsRestantes === 0, 'Los posts del usuario deben eliminarse en cascada');
+// después del paso 7
+const postsRestantes = await PostModel.findAll();
+console.log(`Posts que quedan → esperado: 0 | obtenido: ${postsRestantes.length}`);
 ```
 
 Pregunta final (en un comentario): ¿qué hubiera pasado con los posts al eliminar el usuario **sin** `onDelete: 'CASCADE'`? (Pista: tabla 1.9.)

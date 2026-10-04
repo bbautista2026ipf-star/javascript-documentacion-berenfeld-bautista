@@ -160,6 +160,7 @@ Con `http` todo es manual (comparar URLs, convertir a JSON, escribir headers). E
 |---|---|---|
 | `ReferenceError: document is not defined` | Usar el DOM en Node. | Node no tiene DOM. |
 | `Cannot find module './utils/saludos'` | Ruta mal escrita o sin `./`. | Los módulos locales empiezan con `./` o `../`. |
+| `ReferenceError: os is not defined` (o `sumar is not defined`) | Se escribió `require('node:os')` **sin guardar** lo que devuelve. `require` no crea variables: devuelve lo que el módulo exporta. | `const os = require('node:os');` y `const { sumar } = require('./utils/calculos.js');` |
 | `Cannot find module 'dotenv'` | El paquete no está instalado. | `npm install dotenv`. |
 | `process.env.PORT` es `undefined` | No se cargó `dotenv` o el `.env` no está en la raíz. | Llamar a `dotenv` al inicio y revisar la ubicación del `.env`. |
 | `EADDRINUSE: address already in use :::3000` | Ya hay un proceso usando ese puerto. | Cerrar el anterior (`Ctrl + C`) o cambiar el puerto. |
@@ -202,14 +203,15 @@ Suma: 15
 Precio con IVA: 1210
 ```
 
-Creá `test.js` y ejecutalo con `node test.js`. Si no aparece nada, todo está bien:
+Creá `test.js` y ejecutalo con `node test.js`. En cada línea, el valor **obtenido** tiene que coincidir con el **esperado**:
 
 ```js
 const { sumar, calcularIva } = require('./utils/calculos.js');
+const os = require('node:os');
 
-console.assert(sumar(10, 5) === 15, 'sumar falló');
-console.assert(calcularIva(1000) === 1210, 'calcularIva falló');
-console.assert(typeof require('node:os').platform() === 'string', 'os no se pudo importar');
+console.log(`sumar(10, 5) → esperado: 15 | obtenido: ${sumar(10, 5)}`);
+console.log(`calcularIva(1000) → esperado: 1210 | obtenido: ${calcularIva(1000)}`);
+console.log(`os.platform() → esperado: un texto (win32, linux...) | obtenido: ${os.platform()}`);
 ```
 
 ---

@@ -194,15 +194,15 @@ Lovelace, Ada
 3
 ```
 
-Y `test.js` (sin salida = todo correcto):
+Y `test.js`. En cada línea, el valor **obtenido** tiene que coincidir con el **esperado**:
 
 ```js
 import formatearNombre from './formateador.js';
 import { capitalizar, contarPalabras } from './textos.js';
 
-console.assert(capitalizar('jAVASCRIPT') === 'Javascript', 'capitalizar falló');
-console.assert(contarPalabras(' a  b ') === 2, 'contarPalabras falló');
-console.assert(formatearNombre('alan', 'turing') === 'Turing, Alan', 'formatearNombre falló');
+console.log(`capitalizar('jAVASCRIPT') → esperado: Javascript | obtenido: ${capitalizar('jAVASCRIPT')}`);
+console.log(`contarPalabras(' a  b ') → esperado: 2 | obtenido: ${contarPalabras(' a  b ')}`);
+console.log(`formatearNombre('alan', 'turing') → esperado: Turing, Alan | obtenido: ${formatearNombre('alan', 'turing')}`);
 ```
 
 ---
@@ -242,17 +242,16 @@ catalogo/
 
 ### Cómo probarlo
 
-`node app.js` muestra los datos sin errores. Luego creá `test.js`:
+`node app.js` muestra los datos sin errores. Luego creá `test.js` y compará cada valor obtenido con el esperado:
 
 ```js
 import { productos } from './src/data/productos.js';
 import { obtenerTodos, obtenerPorId, obtenerPorCategoria } from './src/services/productos.service.js';
 
-console.assert(obtenerTodos().length === productos.length, 'obtenerTodos falló');
-console.assert(obtenerPorId(2).id === 2, 'obtenerPorId falló');
-console.assert(obtenerPorId(999) === undefined, 'obtenerPorId con id inexistente falló');
-console.assert(Array.isArray(obtenerPorCategoria('cualquiera')), 'obtenerPorCategoria debe devolver un array');
-console.log('Tests finalizados');
+console.log(`obtenerTodos().length → esperado: ${productos.length} | obtenido: ${obtenerTodos().length}`);
+console.log(`obtenerPorId(2).id → esperado: 2 | obtenido: ${obtenerPorId(2).id}`);
+console.log(`obtenerPorId(999) → esperado: undefined | obtenido: ${obtenerPorId(999)}`);
+console.log(`¿obtenerPorCategoria devuelve un array? → esperado: true | obtenido: ${Array.isArray(obtenerPorCategoria('cualquiera'))}`);
 ```
 
 ---
