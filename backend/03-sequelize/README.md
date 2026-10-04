@@ -1,4 +1,6 @@
-# Módulo 03 — Sequelize: persistencia de datos con un ORM
+# Módulo 03 — Sequelize: persistencia de datos con MySQL
+
+> Material del profesor: `material/TLPI-2025-UNIDAD-4-3.pptx`, `material/Relaciones en Sequelize (1).pdf`, `material/02_Práctica de Relaciones Sequelize.pdf`
 
 ---
 
@@ -6,66 +8,55 @@
 
 ### 1.1 Persistencia de datos y bases de datos relacionales
 
-La **persistencia de datos** es la capacidad de un sistema para conservar información **más allá de la ejecución del proceso**. Un array en memoria desaparece al reiniciar el servidor; un archivo JSON persiste, pero no escala (no soporta concurrencia, ni consultas, ni integridad). La solución profesional es una **base de datos**.
+La **persistencia de datos** es la capacidad de un sistema para guardar información de forma duradera, **incluso después de que la aplicación se apague o se reinicie**. Un arreglo en memoria (como `src/data/personajes.js` de la Práctica de Express) se **pierde** cada vez que el servidor se reinicia: por eso se usa una **base de datos**.
 
-Una **base de datos relacional** (MySQL, PostgreSQL, SQLite, SQL Server) organiza la información en:
+Una **base de datos relacional** (MySQL) guarda la información en **tablas que se relacionan entre sí**:
 
-| Concepto | Definición | Ejemplo |
+| Concepto | Qué es | Ejemplo |
 |---|---|---|
 | **Tabla** | Representa una **entidad**. | `users` |
-| **Fila / registro** | Una **instancia** de esa entidad. | El usuario con id 3 |
+| **Fila / registro** | Una **instancia** de esa entidad. | El usuario con id 3. |
 | **Columna** | Un **atributo** con un tipo de dato. | `email VARCHAR(100)` |
 | **Primary Key (PK)** | Identificador único de cada fila. | `id` |
-| **Foreign Key (FK)** | Columna que **referencia** la PK de otra tabla: así se crean las relaciones. | `tasks.user_id → users.id` |
-| **Restricción (constraint)** | Regla que la base de datos hace cumplir. | `NOT NULL`, `UNIQUE` |
+| **Foreign Key (FK)** | Columna que **apunta** a la PK de otra tabla. Así se relacionan las tablas. | `articles.user_id → users.id` |
 
-Se manipulan con **SQL** mediante cuatro operaciones básicas (**CRUD**): `INSERT` (Create), `SELECT` (Read), `UPDATE` (Update), `DELETE` (Delete).
+Se manipulan con **SQL** mediante cuatro operaciones básicas: `INSERT` (crear), `SELECT` (leer), `UPDATE` (actualizar), `DELETE` (eliminar).
 
-### 1.2 Qué es un ORM y qué es Sequelize
+### 1.2 Qué es Sequelize
 
-Un **ORM (Object-Relational Mapping)** traduce entre dos mundos: **tablas y filas** (base de datos) ↔ **clases y objetos** (JavaScript). En lugar de escribir SQL a mano, se llama a métodos de JavaScript y el ORM genera el SQL.
+**Sequelize** es una librería de JavaScript (un **ORM**) que permite trabajar con bases de datos SQL **usando métodos de JavaScript en lugar de escribir SQL**. Funciona con MySQL, PostgreSQL, SQLite y SQL Server.
 
 ```js
-// Con SQL
-// SELECT * FROM users WHERE email = 'ada@mail.com' LIMIT 1;
-
-// Con Sequelize
+// SQL:        SELECT * FROM users WHERE email = 'ada@mail.com' LIMIT 1;
+// Sequelize:
 const user = await UserModel.findOne({ where: { email: 'ada@mail.com' } });
 ```
 
-**Sequelize** es un ORM para Node.js basado en **Promesas**, compatible con MySQL, PostgreSQL, SQLite, MariaDB y SQL Server. Sus funciones principales:
-
-1. **Modelos:** definen la estructura de cada tabla.
-2. **Consultas:** API de métodos para CRUD y consultas complejas.
-3. **Asociaciones:** definen relaciones entre modelos (1:1, 1:N, N:M).
-4. **Validaciones:** reglas sobre los datos antes de insertarlos.
-5. **Migraciones:** cambios versionados y reversibles en la estructura de la base de datos.
-
-| Capa | Responsabilidad |
+| Pieza | Responsabilidad |
 |---|---|
-| **MySQL** | Motor que **almacena** los datos y ejecuta SQL. |
-| **mysql2** | **Driver**: abre la conexión de red entre Node y MySQL. Sequelize lo necesita instalado. |
-| **Sequelize** | **ORM**: traduce métodos JS a SQL y filas a objetos. |
+| **MySQL** | El motor que **guarda** los datos. |
+| **mysql2** | El **driver**: conecta Node con MySQL. Sequelize lo necesita instalado. |
+| **Sequelize** | Traduce métodos de JavaScript a SQL y filas a objetos. |
 
-Ventajas: menos SQL repetitivo, misma API para distintos motores, validaciones y relaciones declarativas, protección contra **inyección SQL** (los valores se envían parametrizados). Desventajas: curva de aprendizaje, cierta pérdida de rendimiento en consultas complejas, y el riesgo de "no saber qué SQL se está ejecutando" (por eso conviene activar `logging` mientras se aprende).
+**Funciones principales:** modelos (representan tablas), consultas (CRUD), migraciones (cambios controlados en la estructura) y validación de datos.
+**Ventajas:** simplifica la interacción con la base de datos, se integra con el modelo asíncrono de Node, soporta varias bases de datos con la misma API.
+**Desventajas:** curva de aprendizaje, puede ser más lento que SQL puro en consultas complejas, requiere mantenimiento.
 
-### 1.3 Instalación y conexión
+### 1.3 Conexión: `src/config/database.js`
 
 ```bash
-npm install sequelize mysql2 dotenv
+npm install sequelize mysql2
 ```
 
 ```env
 DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=curso_sequelize
 DB_USER=root
 DB_PASSWORD=
+DB_NAME=mi_base
 ```
 
 ```js
 // src/config/database.js
-import 'dotenv/config';
 import { Sequelize } from 'sequelize';
 
 export const sequelize = new Sequelize(
@@ -74,128 +65,108 @@ export const sequelize = new Sequelize(
   process.env.DB_PASSWORD,
   {
     host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
     dialect: 'mysql',
-    logging: false, // true (o console.log) para ver el SQL generado
   }
 );
 
 export const connectDB = async () => {
   try {
-    await sequelize.authenticate();   // prueba la conexión
-    await sequelize.sync();           // crea las tablas que no existan
+    await sequelize.authenticate(); // prueba la conexión
+    await sequelize.sync();         // crea las tablas que no existan
     console.log('Conexión a la base de datos establecida');
   } catch (error) {
-    console.error('Error al conectar con la base de datos:', error.message);
+    console.error('No se pudo conectar a la base de datos:', error);
     process.exit(1);
   }
 };
 ```
 
-> La base de datos (`CREATE DATABASE curso_sequelize;`) se crea **una vez** a mano. Las **tablas** las crea Sequelize.
+- La **base de datos** (`CREATE DATABASE mi_base;`) se crea una vez a mano en MySQL. Las **tablas** las crea Sequelize con `sync()`.
+- `sync({ force: true })` **borra y recrea** las tablas (se pierden los datos). Solo para pruebas.
 
-| Método | Qué hace | Cuándo usarlo |
-|---|---|---|
-| `sync()` | Crea las tablas que **no existen**. No modifica las existentes. | Desarrollo normal. |
-| `sync({ alter: true })` | Intenta **ajustar** las tablas a los modelos. | Desarrollo, con cuidado. |
-| `sync({ force: true })` | **Borra** las tablas y las vuelve a crear. **Se pierden todos los datos.** | Scripts de pruebas/seed. Nunca en producción. |
+### 1.4 Modelos: `src/models/`
 
-En producción se usan **migraciones** en lugar de `sync`.
-
-### 1.4 Modelos
-
-Un **modelo** es la representación en JS de una tabla. Se define con `sequelize.define(nombre, atributos, opciones)`:
+Un **modelo** representa una tabla. Se define con `sequelize.define(nombre, atributos, opciones)`:
 
 ```js
 // src/models/user.model.js
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/database.js';
 
-export const UserModel = sequelize.define(
-  'User',
-  {
-    // id INTEGER AUTO_INCREMENT PRIMARY KEY se crea automáticamente
-    username: {
-      type: DataTypes.STRING(50),
-      allowNull: false,
-      unique: true,
-    },
-    email: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-      unique: true,
-      validate: { isEmail: true },
-    },
-    age: {
-      type: DataTypes.INTEGER,
-      validate: { min: 0, max: 120 },
-    },
-    is_active: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true,
-    },
+export const UserModel = sequelize.define('User', {
+  // el id (PK autoincremental) se crea solo
+  username: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    unique: true,
   },
-  {
-    tableName: 'users',
-    timestamps: true,   // agrega createdAt y updatedAt
-  }
-);
+  email: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+    unique: true,
+  },
+  role: {
+    type: DataTypes.ENUM('user', 'admin'),
+    allowNull: false,
+    defaultValue: 'user',
+  },
+});
 ```
 
-**Tipos de datos frecuentes:** `STRING(n)` (VARCHAR), `TEXT`, `INTEGER`, `DECIMAL(10, 2)` (dinero: **nunca** `FLOAT`), `BOOLEAN`, `DATE`, `DATEONLY`, `ENUM('a', 'b')`.
-
-**Restricción vs validación:**
-
-| | **Restricción** (`allowNull`, `unique`) | **Validación** (`validate: {...}`) |
+| Tipo | Equivale a | Uso |
 |---|---|---|
-| Dónde se aplica | En la **base de datos** (forma parte de la tabla). | En **Sequelize**, antes de enviar el SQL. |
-| Error que lanza | `SequelizeUniqueConstraintError`, etc. | `SequelizeValidationError`. |
+| `DataTypes.STRING(n)` | `VARCHAR(n)` | Textos cortos. |
+| `DataTypes.TEXT` | `TEXT` | Textos largos (contenido, biografía). |
+| `DataTypes.INTEGER` | `INT` | Números enteros, FK. |
+| `DataTypes.BOOLEAN` | `TINYINT(1)` | Verdadero / falso. |
+| `DataTypes.DATE` | `DATETIME` | Fechas. |
+| `DataTypes.ENUM('a', 'b')` | `ENUM` | Valores permitidos fijos (roles, estados). |
+
+| Opción del atributo | Qué hace |
+|---|---|
+| `allowNull: false` | Campo obligatorio. |
+| `unique: true` | No se puede repetir. |
+| `defaultValue` | Valor si no se envía. |
+
+Por defecto Sequelize agrega las columnas `createdAt` y `updatedAt` (opción `timestamps: true`).
 
 ### 1.5 Consultas (CRUD)
 
-Todos los métodos devuelven **Promesas**: siempre se usan con `await` y dentro de `try/catch`.
+Todos los métodos son **asíncronos**: se usan con `await` dentro de `try/catch`.
 
 | Operación | Método | Devuelve |
 |---|---|---|
-| Crear | `Model.create({ ... })` | La instancia creada. |
-| Leer todos | `Model.findAll({ where, attributes, order, limit })` | Array (vacío si no hay resultados). |
-| Leer por PK | `Model.findByPk(id)` | Instancia o **`null`**. |
-| Leer uno | `Model.findOne({ where })` | Instancia o **`null`**. |
-| Contar | `Model.count({ where })` | Número. |
-| Actualizar (masivo) | `Model.update({ campo }, { where })` | `[filasAfectadas]`. |
-| Actualizar (instancia) | `instancia.update({ campo })` | La instancia actualizada. |
-| Eliminar (masivo) | `Model.destroy({ where })` | Número de filas eliminadas. |
-| Eliminar (instancia) | `instancia.destroy()` | — |
+| Crear | `Model.create({ ... })` | El registro creado. |
+| Leer todos | `Model.findAll({ where })` | Un arreglo (vacío si no hay). |
+| Leer por id | `Model.findByPk(id)` | El registro o **`null`**. |
+| Leer uno | `Model.findOne({ where })` | El registro o **`null`**. |
+| Actualizar | `registro.update({ ... })` | El registro actualizado. |
+| Eliminar | `registro.destroy()` | — |
 
 ```js
-import { Op } from 'sequelize';
+const user = await UserModel.findByPk(1);
+if (!user) {
+  console.log('No existe');           // findByPk devolvió null
+} else {
+  await user.update({ role: 'admin' });
+}
 
-const adultos = await UserModel.findAll({
-  where: { age: { [Op.gte]: 18 }, is_active: true },
-  attributes: ['id', 'username'],     // solo estas columnas
-  order: [['username', 'ASC']],
-  limit: 10,
-});
-
-const resultado = await UserModel.findAll({
-  where: { username: { [Op.like]: '%ada%' } },
+const admins = await UserModel.findAll({
+  where: { role: 'admin' },
+  attributes: ['id', 'username'],      // solo estas columnas
 });
 ```
 
-Operadores (`Op`): `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `like`, `in`, `between`, `or`, `and`.
+### 1.6 Relaciones (asociaciones)
 
-**Instancia vs objeto plano:** `findAll` devuelve **instancias de modelo** (con métodos como `.update()`, `.destroy()`). Para ver solo los datos: `instancia.toJSON()` o `console.log(instancia.dataValues)`.
+Sequelize soporta los tres tipos de relaciones con cuatro métodos. Cada método indica **dónde va la clave foránea (FK)**:
 
-### 1.6 Asociaciones (relaciones)
-
-Sequelize ofrece cuatro métodos. Cada uno indica **dónde se ubica la FK** y **qué métodos auxiliares** se generan.
-
-| Método | Significado | Ejemplo | Dónde queda la FK |
+| Método | Significado | Ejemplo | Dónde va la FK |
 |---|---|---|---|
-| `A.hasOne(B)` | A **tiene un** B. | User tiene un Profile. | En **B** (`profiles.user_id`). |
-| `B.belongsTo(A)` | B **pertenece a** A. | Profile pertenece a User. | En **B** (`profiles.user_id`). |
-| `A.hasMany(B)` | A **tiene muchos** B. | User tiene muchas Tasks. | En **B** (`tasks.user_id`). |
-| `A.belongsToMany(B, { through })` | Muchos A con muchos B. | User ↔ Role. | En una **tabla intermedia** (`user_roles`). |
+| `hasOne` | "Este modelo **tiene un**..." | User tiene un Profile. | En `profiles.user_id` |
+| `belongsTo` | "Este modelo **pertenece a**..." | Profile pertenece a User. | En `profiles.user_id` |
+| `hasMany` | "Este modelo **tiene muchos**..." | User tiene muchos Articles. | En `articles.user_id` |
+| `belongsToMany` | "Muchos de este con muchos de otro." | Article ↔ Tag. | En una **tabla intermedia**: `article_tags.article_id` y `article_tags.tag_id` |
 
 **Reglas para recordar:**
 - `hasOne` + `belongsTo` = **1:1** → la FK va donde dice `belongsTo`.
@@ -204,168 +175,190 @@ Sequelize ofrece cuatro métodos. Cada uno indica **dónde se ubica la FK** y **
 
 ```mermaid
 erDiagram
-    USERS ||--o| PROFILES : "hasOne / belongsTo"
-    USERS ||--o{ TASKS : "hasMany / belongsTo"
-    USERS }o--o{ ROLES : "belongsToMany (user_roles)"
+    USERS ||--o| PROFILES : "1:1"
+    USERS ||--o{ ARTICLES : "1:N"
+    ARTICLES }o--o{ TAGS : "N:M (article_tags)"
 ```
 
-**Las relaciones se definen en un archivo central**, después de definir todos los modelos. Si cada modelo importara a otro para relacionarse, se producirían **dependencias circulares**.
+**Configuración de cada relación:**
+- `foreignKey`: nombre exacto de la FK, en **snake_case** y minúsculas (`user_id`, `article_id`).
+- `as`: **alias** de la relación. Se usa **igual** en las consultas con `include`.
+- Las relaciones se declaran **en pares** (`hasOne` con `belongsTo`, `hasMany` con `belongsTo`, dos `belongsToMany`). Sequelize solo reconoce la relación desde el modelo donde se definió: sin el par, no se puede consultar en el otro sentido.
+
+**Tabla intermedia como modelo propio.** Para N:M se crea un modelo para la tabla intermedia (con su propio `id`) y se lo pasa en `through`:
+
+```js
+// src/models/articleTag.model.js
+export const ArticleTagModel = sequelize.define('ArticleTag', {
+  article_id: { type: DataTypes.INTEGER, allowNull: false },
+  tag_id: { type: DataTypes.INTEGER, allowNull: false },
+}, {
+  indexes: [{ unique: true, fields: ['article_id', 'tag_id'] }], // evita duplicados
+});
+```
+
+### 1.7 Dónde se definen las relaciones
+
+Las relaciones se definen en **un único archivo**, **después** de crear todos los modelos. Si cada modelo importara a otro para relacionarse, se generarían **dependencias circulares** (un archivo espera a otro que lo espera a él).
+
+Orden de trabajo:
+1. Definir todos los modelos con sus atributos, **sin relaciones**.
+2. En un único archivo, establecer todas las asociaciones.
+3. Importar los modelos **desde ese archivo** en el resto del proyecto.
 
 ```js
 // src/models/index.js
 import { UserModel } from './user.model.js';
 import { ProfileModel } from './profile.model.js';
-import { TaskModel } from './task.model.js';
-import { RoleModel } from './role.model.js';
-import { UserRoleModel } from './userRole.model.js';
+import { ArticleModel } from './article.model.js';
+import { TagModel } from './tag.model.js';
+import { ArticleTagModel } from './articleTag.model.js';
 
 // 1:1
 UserModel.hasOne(ProfileModel, { foreignKey: 'user_id', as: 'profile' });
 ProfileModel.belongsTo(UserModel, { foreignKey: 'user_id', as: 'user' });
 
 // 1:N
-UserModel.hasMany(TaskModel, { foreignKey: 'user_id', as: 'tasks' });
-TaskModel.belongsTo(UserModel, { foreignKey: 'user_id', as: 'user' });
+UserModel.hasMany(ArticleModel, { foreignKey: 'user_id', as: 'articles' });
+ArticleModel.belongsTo(UserModel, { foreignKey: 'user_id', as: 'author' });
 
 // N:M
-UserModel.belongsToMany(RoleModel, { through: UserRoleModel, foreignKey: 'user_id', as: 'roles' });
-RoleModel.belongsToMany(UserModel, { through: UserRoleModel, foreignKey: 'role_id', as: 'users' });
+ArticleModel.belongsToMany(TagModel, { through: ArticleTagModel, foreignKey: 'article_id', as: 'tags' });
+TagModel.belongsToMany(ArticleModel, { through: ArticleTagModel, foreignKey: 'tag_id', as: 'articles' });
 
-export { UserModel, ProfileModel, TaskModel, RoleModel, UserRoleModel };
+export { UserModel, ProfileModel, ArticleModel, TagModel, ArticleTagModel };
 ```
 
-Convenciones del curso:
-- `foreignKey` en **snake_case** y minúsculas (`user_id`, `role_id`).
-- `as` (**alias**) siempre definido y **usado igual** en todas las consultas.
-- Relaciones declaradas **en pares**: Sequelize solo reconoce la relación desde el modelo donde se define. Sin el par, no se puede consultar en sentido inverso.
+### 1.8 Eager loading: traer datos relacionados con `include`
 
-**Restricciones referenciales por defecto:** en 1:1 y 1:N, `ON DELETE SET NULL` y `ON UPDATE CASCADE`; en N:M, `ON DELETE CASCADE` y `ON UPDATE CASCADE`. Se modifican con `onDelete: 'CASCADE' | 'RESTRICT' | 'SET NULL'`.
-
-### 1.7 Eager loading (carga anticipada)
-
-Obtiene los datos relacionados **en la misma consulta** (un `JOIN`) con `include`:
+**Eager loading** obtiene los datos relacionados **en la misma consulta**, con la opción `include` y el **mismo alias** de la relación:
 
 ```js
 const users = await UserModel.findAll({
   attributes: ['id', 'username'],
   include: [
-    { model: TaskModel, as: 'tasks', attributes: ['id', 'title'] },
-    { model: ProfileModel, as: 'profile', attributes: ['bio'] },
-    { model: RoleModel, as: 'roles', attributes: ['name'], through: { attributes: [] } },
+    { model: ProfileModel, as: 'profile', attributes: ['first_name', 'last_name'] },
+    { model: ArticleModel, as: 'articles', attributes: ['id', 'title'] },
+  ],
+});
+
+const articles = await ArticleModel.findAll({
+  include: [
+    { model: UserModel, as: 'author', attributes: ['username'] },
+    { model: TagModel, as: 'tags', attributes: ['name'], through: { attributes: [] } },
   ],
 });
 ```
 
-- `attributes` en cada nivel: devolver **solo lo esencial** (nunca contraseñas ni datos innecesarios).
-- `through: { attributes: [] }` oculta las columnas de la tabla intermedia en relaciones N:M.
+- `attributes` en cada nivel: mostrar **solo lo esencial** (nunca contraseñas).
+- `through: { attributes: [] }` oculta las columnas de la tabla intermedia en N:M.
 
-**Métodos auxiliares (mixins)** que Sequelize genera según el alias:
+### 1.9 Restricciones de eliminación
 
-| Relación | Métodos generados (alias `tasks` / `roles` / `profile`) |
-|---|---|
-| `hasMany` | `user.getTasks()`, `user.createTask()`, `user.countTasks()` |
-| `belongsToMany` | `user.getRoles()`, `user.addRole(role)`, `user.setRoles([...])`, `user.removeRole(role)` |
-| `hasOne` / `belongsTo` | `user.getProfile()`, `user.setProfile(profile)` |
+| Relación | `ON DELETE` por defecto | `ON UPDATE` por defecto |
+|---|---|---|
+| 1:1 y 1:N | `SET NULL` (la FK queda vacía) | `CASCADE` |
+| N:M | `CASCADE` (se borran las filas de la tabla intermedia) | `CASCADE` |
 
-### 1.8 Errores comunes
+Se cambian con la opción `onDelete`:
+
+```js
+UserModel.hasMany(ArticleModel, { foreignKey: 'user_id', as: 'articles', onDelete: 'CASCADE' });
+```
+
+Con `CASCADE`, al eliminar un usuario se eliminan sus artículos automáticamente.
+
+### 1.10 Errores comunes
 
 | Error | Causa | Solución |
 |---|---|---|
 | `Please install mysql2 package manually` | Falta el driver. | `npm install mysql2`. |
-| `Access denied for user` / `Unknown database` | Credenciales o nombre de BD incorrectos en `.env`. | Verificar `.env` y crear la base de datos. |
-| Se imprime `Promise { <pending> }` | Falta `await`. | Todo método de Sequelize se espera con `await`. |
-| `TypeError: Cannot read properties of null` | `findByPk` / `findOne` devolvió `null` y se usó el resultado igual. | Verificar existencia antes de usar: `if (!user) ...`. |
-| `SequelizeEagerLoadingError: X is associated to Y using an alias` | El `as` del `include` no coincide con el de la asociación (o falta la asociación). | Usar exactamente el mismo alias. |
-| `SequelizeUniqueConstraintError` | Valor duplicado en una columna `unique`. | Verificar unicidad antes de crear, o manejar el error. |
-| Los datos desaparecen en cada ejecución | `sync({ force: true })` en el flujo normal. | Usar `force` solo en scripts de seed. |
-| `ReferenceError: Cannot access 'X' before initialization` | Asociaciones definidas dentro de los archivos de modelos (imports circulares). | Centralizar las asociaciones en `models/index.js`. |
-| Tabla intermedia sin `user_id` / `role_id` | Se olvidó el par de `belongsToMany` o el `foreignKey` del segundo. | Declarar ambos `belongsToMany` con su `foreignKey`. |
+| `Access denied for user` / `Unknown database` | Datos de conexión incorrectos o base no creada. | Revisar `.env` y crear la base de datos. |
+| Aparece `Promise { <pending> }` | Falta `await`. | Todo método de Sequelize va con `await`. |
+| `Cannot read properties of null` | `findByPk`/`findOne` devolvió `null`. | Verificar existencia: `if (!user)`. |
+| `SequelizeEagerLoadingError: ... is associated ... using an alias` | El `as` del `include` no coincide con el de la relación. | Usar exactamente el mismo alias. |
+| `SequelizeUniqueConstraintError` | Valor repetido en una columna `unique`. | Verificar antes de crear (módulo 05 lo automatiza). |
+| Los datos desaparecen en cada ejecución | Se usa `sync({ force: true })`. | Usar `sync()` normal. |
+| `Cannot access 'X' before initialization` | Relaciones definidas dentro de los archivos de modelos (imports circulares). | Centralizarlas en `models/index.js`. |
 
-### 1.9 Cómo construir la lógica de persistencia
+### 1.11 Dónde vas a usar esto en los trabajos prácticos
 
-1. **Modelar antes de programar:** listar entidades, atributos y tipos. Dibujar las relaciones (¿uno o muchos de cada lado?).
-2. **Decidir dónde va la FK:** del lado "muchos" en 1:N; del lado "dependiente" en 1:1; en tabla intermedia en N:M.
-3. **Definir modelos sin relaciones** → **asociar en un único archivo** → **sincronizar**.
-4. **Toda operación es asíncrona:** `async/await` + `try/catch`.
-5. **Validar existencia** (`null`) antes de actualizar, eliminar o relacionar.
-6. **Consultar solo lo necesario:** `attributes` en cada nivel del `include`.
+- `src/config/database.js`: instancia de Sequelize + función de conexión.
+- `src/models/`: un archivo por modelo + las relaciones 1:1, 1:N y N:M con alias.
+- Los **controladores** (módulo 04) usan `findAll`, `findByPk`, `create`, `update` y `destroy` con `include`.
 
 ---
 
-## 2. Ejercicio fácil — "Mi primer CRUD con Sequelize"
+## 2. Ejercicio fácil — "Conexión y CRUD de un modelo"
 
-**Qué vas a practicar:** conexión a MySQL, definir un modelo y las 4 operaciones CRUD. Todavía **sin servidor**: todo se ejecuta con scripts.
+**Qué vas a practicar:** conectar Sequelize a MySQL, definir un modelo y usar los métodos CRUD. **Todavía sin servidor**: todo se prueba con un script.
+
+**En el proyecto real:** son los archivos `src/config/database.js` y `src/models/*.model.js` del TP, y los mismos métodos que vas a llamar desde los controladores.
 
 ### Preparación
 
 ```bash
-mkdir inventario && cd inventario
+mkdir crud-sequelize && cd crud-sequelize
 npm init -y
 npm install sequelize mysql2 dotenv
 ```
 
-En MySQL: `CREATE DATABASE inventario_db;`. Agregá `"type": "module"` al `package.json`.
+En MySQL: `CREATE DATABASE crud_sequelize;`. En `package.json`: `"type": "module"`.
 
 ### Consigna
 
-1. Creá `.env` con los datos de conexión y `src/config/database.js` con la instancia de `sequelize` y la función `connectDB`.
-2. Creá `src/models/product.model.js` con el modelo `Product` (tabla `products`):
+1. `.env` con `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`.
+2. `src/config/database.js` con `sequelize` y `connectDB` (copiá la estructura de la teoría).
+3. `src/models/tag.model.js` con el modelo `Tag`:
 
 | Campo | Tipo | Reglas |
 |---|---|---|
-| `name` | `STRING(100)` | Obligatorio, único. |
-| `price` | `DECIMAL(10, 2)` | Obligatorio, mínimo `0`. |
-| `stock` | `INTEGER` | Por defecto `0`, mínimo `0`. |
-| `category` | `STRING(50)` | Obligatorio. |
+| `name` | `STRING(30)` | Obligatorio, único. |
 
-3. Creá `src/crud.js` que, en orden:
-   1. Conecte y sincronice con `sync({ force: true })` (esto es un script de práctica).
-   2. Cree 4 productos (al menos 2 de la misma categoría).
-   3. Muestre todos los productos (solo `name` y `price`).
-   4. Busque el producto con id `2` y muestre su nombre.
-   5. Actualice el stock del producto con id `1` a `50`.
-   6. Elimine el producto con id `4`.
-   7. Muestre cuántos productos quedan.
-   8. Cierre la conexión con `sequelize.close()`.
-
-### Pistas
-
-- `price` de tipo `DECIMAL` vuelve como **string** desde MySQL (`"1500.00"`). Es normal.
-- Para ver los datos limpios: `productos.map((p) => p.toJSON())`.
+4. `src/crud.js` que, en orden:
+   1. Importe `dotenv/config`, conecte con `sequelize.authenticate()` y sincronice con `sequelize.sync({ force: true })` (es un script de práctica).
+   2. Cree 3 etiquetas: `javascript`, `node`, `mysql`.
+   3. Muestre todas.
+   4. Busque la etiqueta con id `2` y muestre su nombre.
+   5. Actualice la etiqueta `1` a `js`.
+   6. Elimine la etiqueta `3`.
+   7. Cierre la conexión con `await sequelize.close()`.
 
 ### Cómo probarlo
 
-Agregá estas verificaciones al final de `crud.js` (antes de cerrar la conexión):
+Agregá antes de cerrar la conexión:
 
 ```js
-const total = await ProductModel.count();
-console.assert(total === 3, `Se esperaban 3 productos y hay ${total}`);
+const todas = await TagModel.findAll();
+console.assert(todas.length === 2, `Se esperaban 2 etiquetas y hay ${todas.length}`);
 
-const p1 = await ProductModel.findByPk(1);
-console.assert(p1.stock === 50, 'El stock del producto 1 debería ser 50');
+const primera = await TagModel.findByPk(1);
+console.assert(primera.name === 'js', 'La etiqueta 1 debería llamarse js');
 
-const p4 = await ProductModel.findByPk(4);
-console.assert(p4 === null, 'El producto 4 debería estar eliminado');
+const eliminada = await TagModel.findByPk(3);
+console.assert(eliminada === null, 'La etiqueta 3 debería estar eliminada');
 
 try {
-  await ProductModel.create({ name: 'Precio negativo', price: -10, category: 'Test' });
-  console.assert(false, 'Debería haber fallado por precio negativo');
+  await TagModel.create({ name: 'node' });
+  console.assert(false, 'No debería permitir un nombre repetido');
 } catch (error) {
-  console.assert(error.name === 'SequelizeValidationError', 'Se esperaba un error de validación');
+  console.assert(error.name === 'SequelizeUniqueConstraintError', 'Se esperaba un error de unicidad');
 }
 ```
 
-Verificación extra: abrí MySQL Workbench / phpMyAdmin y comprobá que la tabla `products` tenga 3 filas y las columnas `createdAt` y `updatedAt`.
+Abrí MySQL Workbench / phpMyAdmin: la tabla `Tags` tiene 2 filas y las columnas `createdAt` y `updatedAt`.
 
 ---
 
-## 3. Ejercicio medio — "Usuarios, perfiles y tareas (1:1 y 1:N)"
+## 3. Ejercicio medio — "Relaciones 1:1 y 1:N"
 
-**Qué vas a practicar:** varios modelos, archivo central de asociaciones, eager loading y métodos auxiliares.
+**Qué vas a practicar:** varios modelos, `hasOne`, `hasMany`, `belongsTo`, alias, el archivo central de relaciones y consultas con `include`.
+
+**En el proyecto real:** son las relaciones **User ↔ Profile** (1:1) y **User ↔ Article** (1:N) del TP Integrador.
 
 ### Consigna
 
-Proyecto `gestor-tareas/` con esta estructura:
+Proyecto `relaciones-sequelize/`:
 
 ```
 src/
@@ -373,160 +366,111 @@ src/
 ├── models/
 │   ├── user.model.js
 │   ├── profile.model.js
-│   ├── task.model.js
-│   └── index.js        → asociaciones
-├── seed.js             → carga datos de prueba
-└── queries.js          → consultas
+│   ├── post.model.js
+│   └── index.js        → relaciones
+└── consultas.js
 ```
 
-**Modelos:**
+**Modelos** (sin relaciones adentro):
 
 | Modelo | Campos |
 |---|---|
-| `User` (`users`) | `username` (único, obligatorio), `email` (único, obligatorio, `isEmail`) |
-| `Profile` (`profiles`) | `first_name`, `last_name` (obligatorios), `bio` (`TEXT`, opcional) |
-| `Task` (`tasks`) | `title` (obligatorio, entre 3 y 100 caracteres con `validate: { len: [3, 100] }`), `is_completed` (`BOOLEAN`, por defecto `false`) |
+| `User` | `username` (`STRING(20)`, único, obligatorio), `email` (`STRING(100)`, único, obligatorio) |
+| `Profile` | `first_name`, `last_name` (`STRING(50)`, obligatorios), `biography` (`TEXT`, opcional) |
+| `Post` | `title` (`STRING(200)`, obligatorio), `content` (`TEXT`, obligatorio) |
 
-**Relaciones** (en `models/index.js`, declaradas en pares):
-- Un `User` tiene un `Profile` (alias `profile` / `user`).
-- Un `User` tiene muchas `Task` (alias `tasks` / `user`). Al eliminar un usuario, se eliminan sus tareas (`onDelete: 'CASCADE'`).
-- Las FK se llaman `user_id`.
+**Relaciones** en `models/index.js`, en pares:
 
-**`seed.js`** (usa `sync({ force: true })`):
-- 3 usuarios, cada uno con su perfil.
-- 6 tareas en total: el usuario 1 con 3, el usuario 2 con 3, el usuario 3 **sin tareas**.
-- Al menos 2 tareas completadas.
-- Usá al menos una vez el método auxiliar `user.createTask({...})`.
+| Relación | FK | Alias |
+|---|---|---|
+| User **tiene un** Profile | `user_id` | `profile` / `user` |
+| User **tiene muchos** Post | `user_id` | `posts` / `author` |
 
-**`queries.js`** — implementá y mostrá por consola:
-
-1. Todos los usuarios con su perfil (solo `first_name` y `last_name`) y sus tareas (solo `title` e `is_completed`).
-2. Una tarea por id incluyendo el `username` de su dueño.
-3. Los usuarios con la **cantidad** de tareas de cada uno (usando `countTasks()`).
-4. Solo las tareas **pendientes** de un usuario dado, usando `getTasks({ where: ... })`.
-5. Eliminar al usuario 2 y verificar que sus tareas también se eliminaron.
+**`consultas.js`** (con `sync({ force: true })` al inicio):
+1. Creá 2 usuarios, cada uno con su perfil (creá el usuario y después el perfil con `user_id: user.id`).
+2. Creá 3 posts para el usuario 1 y ninguno para el usuario 2.
+3. Mostrá todos los usuarios con su perfil (`first_name`, `last_name`) y sus posts (`title`).
+4. Mostrá el post con id `1` con su autor (`username`).
+5. Mostrá el perfil del usuario 2 con los datos de su usuario.
 
 ### Reglas
 
 - Ningún archivo de modelo importa a otro modelo.
-- `seed.js` y `queries.js` importan los modelos **desde `models/index.js`** (para que las asociaciones estén cargadas).
-- Todo dentro de funciones `async` con `try/catch`.
+- `consultas.js` importa los modelos desde `models/index.js`.
 
 ### Cómo probarlo
 
-Ejecutá `node src/seed.js` y luego `node src/queries.js`. Agregá al final de `queries.js`:
+Al final de `consultas.js`:
 
 ```js
-const usuarios = await UserModel.findAll({ include: [{ model: TaskModel, as: 'tasks' }] });
-const sinTareas = usuarios.find((u) => u.tasks.length === 0);
-console.assert(sinTareas !== undefined, 'Debe existir un usuario sin tareas');
+const user1 = await UserModel.findByPk(1, { include: [{ model: PostModel, as: 'posts' }] });
+console.assert(user1.posts.length === 3, 'El usuario 1 debe tener 3 posts');
 
-const tarea = await TaskModel.findByPk(1, { include: [{ model: UserModel, as: 'user' }] });
-console.assert(tarea.user !== null, 'La tarea debe incluir a su usuario');
+const user2 = await UserModel.findByPk(2, { include: [{ model: ProfileModel, as: 'profile' }] });
+console.assert(user2.profile !== null, 'El usuario 2 debe tener perfil');
 
-const tareasHuerfanas = await TaskModel.count({ where: { user_id: 2 } });
-console.assert(tareasHuerfanas === 0, 'Las tareas del usuario 2 debían eliminarse en cascada');
-
-const perfil = await ProfileModel.findOne({ where: { user_id: 1 } });
-console.assert(perfil !== null, 'El usuario 1 debe tener perfil');
+const post = await PostModel.findByPk(1, { include: [{ model: UserModel, as: 'author' }] });
+console.assert(post.author.username !== undefined, 'El post debe incluir a su autor');
 ```
 
-Comprobá además en la base de datos que `profiles` y `tasks` tienen la columna `user_id`.
+En la base de datos: `Profiles` y `Posts` tienen la columna `user_id`.
 
 ---
 
-## 4. Ejercicio difícil — "Inscripciones: muchos a muchos con datos propios"
+## 4. Ejercicio difícil — "Relación N:M con tabla intermedia y eliminación en cascada"
 
-**Qué vas a practicar:** relación N:M con tabla intermedia que **tiene atributos propios**, índices únicos compuestos, consultas con agregación y manejo de errores de restricción.
+**Qué vas a practicar:** `belongsToMany` con un modelo intermedio propio, índice único para evitar duplicados, `through: { attributes: [] }` y el comportamiento de `onDelete`.
 
-### Contexto
-
-Un instituto necesita registrar qué estudiantes cursan qué materias y con qué nota. Un estudiante cursa **muchas** materias; una materia tiene **muchos** estudiantes. La inscripción guarda datos propios: la **nota final** y la **fecha de inscripción**.
+**En el proyecto real:** es la relación **Article ↔ Tag** a través de **ArticleTag** del TP Integrador, y la eliminación en cascada que pide la consigna.
 
 ### Consigna
 
-**Modelos:**
+Continuá el proyecto del ejercicio medio y agregá:
+
+**Modelos nuevos:**
 
 | Modelo | Campos |
 |---|---|
-| `Student` (`students`) | `full_name` (obligatorio), `dni` (único, obligatorio, exactamente 8 dígitos numéricos) |
-| `Course` (`courses`) | `name` (único), `max_students` (`INTEGER`, mínimo 1) |
-| `Enrollment` (`enrollments`) | `grade` (`DECIMAL(4, 2)`, opcional, entre 1 y 10), `enrolled_at` (`DATEONLY`, por defecto la fecha actual) |
-| `Teacher` (`teachers`) | `full_name` |
+| `Tag` | `name` (`STRING(30)`, único, obligatorio) |
+| `PostTag` | `post_id`, `tag_id` (`INTEGER`, obligatorios) + índice único sobre ambos |
 
-**Relaciones:**
-1. `Student` ↔ `Course` es **N:M** a través de `Enrollment` (alias `courses` / `students`, FK `student_id` y `course_id`).
-2. `Teacher` 1:N `Course`: un docente dicta muchas materias; cada materia tiene un docente (FK `teacher_id`, alias `courses` / `teacher`). **No se puede eliminar** un docente que tenga materias (`onDelete: 'RESTRICT'`).
-3. Además del N:M, definí `Enrollment.belongsTo(Student)` y `Enrollment.belongsTo(Course)` para poder consultar la tabla intermedia directamente.
-4. En `Enrollment`, agregá un **índice único compuesto** sobre `student_id` + `course_id` para que un estudiante no pueda inscribirse dos veces a la misma materia:
-   ```js
-   { tableName: 'enrollments', indexes: [{ unique: true, fields: ['student_id', 'course_id'] }] }
-   ```
+**Relaciones nuevas** en `models/index.js`:
+- Post **muchos a muchos** Tag a través de `PostTag` (FK `post_id` / `tag_id`, alias `tags` / `posts`).
+- Cambiá la relación User → Post para que al eliminar un usuario se eliminen sus posts (`onDelete: 'CASCADE'`).
 
-**Servicios** (`src/services/enrollment.service.js`) — funciones `async` exportadas:
-
-1. `enroll(studentId, courseId)`:
-   - Lanza `Error('Estudiante no encontrado')` / `Error('Materia no encontrada')` si alguno no existe.
-   - Lanza `Error('Cupo completo')` si la materia ya tiene `max_students` inscriptos.
-   - Lanza `Error('El estudiante ya está inscripto')` si se repite la inscripción (atrapá el `SequelizeUniqueConstraintError` y traducilo).
-2. `setGrade(studentId, courseId, grade)`: actualiza la nota de una inscripción existente.
-3. `getCourseReport(courseId)`: devuelve
-   ```js
-   { course: 'Programación', teacher: 'Ana Pérez', students: [{ full_name, grade }], average: 7.5 }
-   ```
-   El promedio solo considera notas **no nulas** y se redondea a 2 decimales. Los alumnos se ordenan por nota descendente. **No** se exponen columnas de la tabla intermedia que no sean `grade`.
-4. `getStudentHistory(dni)`: materias del estudiante con su nota y el nombre del docente (include anidado: `Student → Course → Teacher`).
+**`etiquetas.js`** (con `sync({ force: true })`):
+1. Creá 1 usuario, 2 posts y 3 etiquetas.
+2. Asociá etiquetas creando filas en `PostTag`: post 1 con etiquetas 1 y 2; post 2 con etiqueta 2.
+3. Intentá asociar **otra vez** el post 1 con la etiqueta 1 y atrapá el error en un `try/catch`.
+4. Mostrá todos los posts con sus etiquetas (solo `name`, **sin** columnas de `PostTag`).
+5. Mostrá la etiqueta 2 con sus posts.
+6. Eliminá el post 1 y verificá qué pasó en `PostTag`.
+7. Eliminá el usuario y verificá qué pasó con sus posts.
 
 ### Pistas
 
-- Para contar inscriptos: `await EnrollmentModel.count({ where: { course_id: courseId } })`.
-- En un include N:M, los datos de la tabla intermedia aparecen bajo el nombre del modelo intermedio: `student.Enrollment.grade`. Con `through: { attributes: ['grade'] }` elegís cuáles mostrar.
-- Include anidado: `include: [{ model: CourseModel, as: 'courses', include: [{ model: TeacherModel, as: 'teacher' }] }]`.
-- Los `DECIMAL` llegan desde MySQL como **string** (`"8.00"`): convertilos con `Number()` antes de calcular el promedio y devolvé `grade` como número en el reporte.
-
-### Desafío extra (opcional)
-
-Implementá `transferStudent(studentId, fromCourseId, toCourseId)` usando una **transacción** (`sequelize.transaction()`): si la inscripción a la nueva materia falla (por ejemplo, por cupo), la baja de la materia original **se deshace**.
+- Para asociar: `await PostTagModel.create({ post_id: 1, tag_id: 2 })`.
+- El error del paso 3 es un `SequelizeUniqueConstraintError` (lo genera el índice único).
 
 ### Cómo probarlo
 
-Creá `src/test.js` que cargue datos con `sync({ force: true })` (2 docentes, 3 materias, una con `max_students: 2`, 4 estudiantes) y verifique:
-
 ```js
-await enroll(1, 1);
-await enroll(2, 1);
+const posts = await PostModel.findAll({
+  include: [{ model: TagModel, as: 'tags', attributes: ['name'], through: { attributes: [] } }],
+});
+console.assert(posts[0].tags.length === 2, 'El post 1 debe tener 2 etiquetas');
+console.assert(posts[0].tags[0].PostTag === undefined, 'No deben aparecer columnas de PostTag');
 
-await expectError(() => enroll(3, 1), 'Cupo completo');
-await expectError(() => enroll(1, 1), 'El estudiante ya está inscripto');
-await expectError(() => enroll(99, 2), 'Estudiante no encontrado');
+const tag2 = await TagModel.findByPk(2, { include: [{ model: PostModel, as: 'posts' }] });
+console.assert(tag2.posts.length === 2, 'La etiqueta 2 debe estar en 2 posts');
 
-await setGrade(1, 1, 8);
-await setGrade(2, 1, 6.5);
-const report = await getCourseReport(1);
-console.assert(report.average === 7.25, `Promedio esperado 7.25, obtenido ${report.average}`);
-console.assert(report.students[0].grade >= report.students[1].grade, 'Debe ordenarse por nota descendente');
+// después de eliminar el post 1
+const filasPost1 = await PostTagModel.count({ where: { post_id: 1 } });
+console.assert(filasPost1 === 0, 'Las filas de PostTag del post 1 deben eliminarse en cascada');
 
-try {
-  await TeacherModel.destroy({ where: { id: 1 } });
-  console.assert(false, 'No debería poder eliminarse un docente con materias');
-} catch (error) {
-  console.assert(error.name === 'SequelizeForeignKeyConstraintError', 'Se esperaba error de FK');
-}
-
-console.log('Tests finalizados');
+// después de eliminar el usuario
+const postsRestantes = await PostModel.count();
+console.assert(postsRestantes === 0, 'Los posts del usuario deben eliminarse en cascada');
 ```
 
-Donde `expectError` es una función auxiliar que vos escribís:
-
-```js
-const expectError = async (fn, mensajeEsperado) => {
-  try {
-    await fn();
-    console.assert(false, `Se esperaba el error: ${mensajeEsperado}`);
-  } catch (error) {
-    console.assert(error.message === mensajeEsperado, `Esperado "${mensajeEsperado}", recibido "${error.message}"`);
-  }
-};
-```
-
-**Criterio de aprobación:** todos los `console.assert` pasan sin mensajes y en la base de datos existe el índice único en `enrollments`.
+Pregunta final (en un comentario): ¿qué hubiera pasado con los posts al eliminar el usuario **sin** `onDelete: 'CASCADE'`? (Pista: tabla 1.9.)
