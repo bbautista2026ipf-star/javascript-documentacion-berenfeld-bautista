@@ -17,5 +17,10 @@
   "bugs": {
     "url": "https://github.com/bbautista2026ipf-star/JAVASCRIPT-DOCUMENTACION-BERENFELD-BAUTISTA/issues"
   },
-  "homepage": "https://github.com/bbautista2026ipf-star/JAVASCRIPT-DOCUMENTACION-BERENFELD-BAUTISTA#readme"
+  "homepage": "https://github.com/bbautista2026ipf-star/JAVASCRIPT-DOCUMENTACION-BERENFELD-BAUTISTA#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1"
+  }
 }
