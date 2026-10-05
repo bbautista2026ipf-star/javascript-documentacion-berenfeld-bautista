@@ -12,13 +12,13 @@
 
 Antes de Node, JavaScript solo corría dentro del navegador. Node permite ejecutarlo directamente sobre el sistema operativo: leer archivos, abrir puertos, conectarse a bases de datos.
 
-| Término | Qué es | Qué NO es |
-|---|---|---|
-| **JavaScript** | El lenguaje. | No sabe leer archivos ni abrir puertos por sí solo. |
-| **V8** | El motor que ejecuta el código JavaScript. | No provee acceso al sistema. |
-| **Node.js** | Runtime = V8 + acceso al sistema (archivos, red) + módulos integrados. | No es un lenguaje ni un framework. |
-| **npm** | Gestor de paquetes que viene con Node. | No es Node en sí. |
-| **Express** (módulo 04) | Framework para crear servidores, construido **sobre** Node. | No reemplaza a Node: lo necesita. |
+| Término                 | Qué es                                                                 | Qué NO es                                           |
+| ----------------------- | ---------------------------------------------------------------------- | --------------------------------------------------- |
+| **JavaScript**          | El lenguaje.                                                           | No sabe leer archivos ni abrir puertos por sí solo. |
+| **V8**                  | El motor que ejecuta el código JavaScript.                             | No provee acceso al sistema.                        |
+| **Node.js**             | Runtime = V8 + acceso al sistema (archivos, red) + módulos integrados. | No es un lenguaje ni un framework.                  |
+| **npm**                 | Gestor de paquetes que viene con Node.                                 | No es Node en sí.                                   |
+| **Express** (módulo 04) | Framework para crear servidores, construido **sobre** Node.            | No reemplaza a Node: lo necesita.                   |
 
 En el **navegador** existen `window`, `document` y el DOM. En **Node** no existen: en su lugar hay `process`, acceso a archivos y a la red.
 
@@ -27,22 +27,22 @@ En el **navegador** existen `window`, `document` y el DOM. En **Node** no existe
 
 ### 1.2 Peticiones bloqueantes y no bloqueantes
 
-| | **Bloqueante (síncrona)** | **No bloqueante (asíncrona)** |
-|---|---|---|
-| Qué pasa | El programa **se detiene** hasta que la operación termina. | El programa **sigue ejecutándose** mientras la operación se resuelve en segundo plano. |
-| Cuándo llega la respuesta | En el presente: espera el resultado. | En el futuro: no espera el resultado. |
-| Efecto en un servidor | Mientras espera, **nadie más es atendido**. | Puede atender muchas solicitudes simultáneamente. |
+|                           | **Bloqueante (síncrona)**                                  | **No bloqueante (asíncrona)**                                                          |
+| ------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Qué pasa                  | El programa **se detiene** hasta que la operación termina. | El programa **sigue ejecutándose** mientras la operación se resuelve en segundo plano. |
+| Cuándo llega la respuesta | En el presente: espera el resultado.                       | En el futuro: no espera el resultado.                                                  |
+| Efecto en un servidor     | Mientras espera, **nadie más es atendido**.                | Puede atender muchas solicitudes simultáneamente.                                      |
 
-En Node, las operaciones de entrada/salida (leer un archivo, consultar una base de datos) se **delegan** a un *thread pool* o al sistema operativo. Cuando terminan, se avisa al hilo principal para que procese la respuesta.
+En Node, las operaciones de entrada/salida (leer un archivo, consultar una base de datos) se **delegan** a un _thread pool_ o al sistema operativo. Cuando terminan, se avisa al hilo principal para que procese la respuesta.
 
 ```js
-import fs from 'node:fs';
+import fs from "node:fs";
 
 // Bloqueante: el programa espera acá hasta terminar de leer
-const texto = fs.readFileSync('./datos.txt', 'utf-8');
+const texto = fs.readFileSync("./datos.txt", "utf-8");
 
 // No bloqueante: se pide la lectura y el programa sigue
-fs.readFile('./datos.txt', 'utf-8', (error, texto) => {
+fs.readFile("./datos.txt", "utf-8", (error, texto) => {
   // esta función (callback) se ejecuta cuando la lectura termina
 });
 ```
@@ -56,6 +56,7 @@ El **ciclo de eventos** es el bucle que Node ejecuta continuamente mientras la a
 - **Fases del proceso:** timers (`setTimeout`), entrada/salida (I/O), comprobación (check), cierre (close).
 
 **Cómo funciona:**
+
 1. Node espera solicitudes y eventos.
 2. Cuando llega una, agrega la tarea a la cola de eventos.
 3. El event loop toma la siguiente tarea y la procesa sin bloquear.
@@ -72,17 +73,17 @@ flowchart LR
     E -->|terminó| B
 ```
 
-**Ciclo de vida de un proceso:** *inicio* (se ejecuta `node archivo.js`, se cargan módulos) → *ejecución* → *finalización* (cuando no quedan tareas pendientes). Por eso un script común termina solo, pero un **servidor** queda en ejecución: está esperando solicitudes.
+**Ciclo de vida de un proceso:** _inicio_ (se ejecuta `node archivo.js`, se cargan módulos) → _ejecución_ → _finalización_ (cuando no quedan tareas pendientes). Por eso un script común termina solo, pero un **servidor** queda en ejecución: está esperando solicitudes.
 
 ### 1.4 Módulos
 
 Un **módulo** es un archivo de código reutilizable con su **propio ámbito**: lo que se declara adentro no afecta a otros archivos, salvo que se **exporte**. Permiten separar el código en archivos y carpetas (mejor organización, reutilización y mantenimiento).
 
-| Tipo | Qué son | Ejemplo |
-|---|---|---|
-| **Integrados (Core Modules)** | Vienen con Node. No se instalan. | `fs`, `path`, `http`, `os`, `crypto` |
-| **Locales (Local Modules)** | Archivos que escribe el desarrollador. | `./utils/saludos.js` |
-| **Externos (Third-party Modules)** | Paquetes de otros desarrolladores, publicados en npm. | `express`, `sequelize`, `dotenv` |
+| Tipo                               | Qué son                                               | Ejemplo                              |
+| ---------------------------------- | ----------------------------------------------------- | ------------------------------------ |
+| **Integrados (Core Modules)**      | Vienen con Node. No se instalan.                      | `fs`, `path`, `http`, `os`, `crypto` |
+| **Locales (Local Modules)**        | Archivos que escribe el desarrollador.                | `./utils/saludos.js`                 |
+| **Externos (Third-party Modules)** | Paquetes de otros desarrolladores, publicados en npm. | `express`, `sequelize`, `dotenv`     |
 
 Los módulos se conectan con **ES Modules**, el sistema estándar de JavaScript que exigen los trabajos prácticos: **`export`** para compartir y **`import`** para usar. Para activarlo, el `package.json` debe tener `"type": "module"`.
 
@@ -93,10 +94,10 @@ export const saludar = (nombre) => `Hola, ${nombre}`;
 
 ```js
 // app.js
-import os from 'node:os';                        // módulo integrado
-import { saludar } from './utils/saludos.js';    // módulo local: ./ y extensión .js
+import os from "node:os"; // módulo integrado
+import { saludar } from "./utils/saludos.js"; // módulo local: ./ y extensión .js
 
-console.log(`${saludar('Ada')} desde ${os.platform()}`);
+console.log(`${saludar("Ada")} desde ${os.platform()}`);
 ```
 
 - `import` **crea la variable** con lo que el otro archivo exportó (`os`, `saludar`).
@@ -107,16 +108,16 @@ console.log(`${saludar('Ada')} desde ${os.platform()}`);
 
 **npm** es el administrador de paquetes de Node: descarga, instala y elimina las dependencias del proyecto.
 
-| Comando / archivo | Para qué sirve |
-|---|---|
-| `npm init -y` | Crea el `package.json`. |
-| `package.json` | **Manifiesto** del proyecto: nombre, scripts y dependencias. |
-| `"type": "module"` | Línea del `package.json` que activa `import` / `export`. Se agrega a mano después de `npm init -y`. |
-| `npm install express` | Descarga el paquete en `node_modules/` y lo anota en `dependencies`. |
-| `node_modules/` | Código de las dependencias. **Nunca se sube a Git**: se regenera con `npm install`. |
-| `package-lock.json` | Fija las versiones exactas instaladas. Sí se sube a Git. |
-| `.gitignore` | Lista lo que Git debe ignorar (`node_modules/`, `.env`). |
-| `"scripts"` | Atajos: `"dev": "node --watch app.js"` → `npm run dev` (reinicia al guardar). |
+| Comando / archivo     | Para qué sirve                                                                                      |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| `npm init -y`         | Crea el `package.json`.                                                                             |
+| `package.json`        | **Manifiesto** del proyecto: nombre, scripts y dependencias.                                        |
+| `"type": "module"`    | Línea del `package.json` que activa `import` / `export`. Se agrega a mano después de `npm init -y`. |
+| `npm install express` | Descarga el paquete en `node_modules/` y lo anota en `dependencies`.                                |
+| `node_modules/`       | Código de las dependencias. **Nunca se sube a Git**: se regenera con `npm install`.                 |
+| `package-lock.json`   | Fija las versiones exactas instaladas. Sí se sube a Git.                                            |
+| `.gitignore`          | Lista lo que Git debe ignorar (`node_modules/`, `.env`).                                            |
+| `"scripts"`           | Atajos: `"dev": "node --watch app.js"` → `npm run dev` (reinicia al guardar).                       |
 
 ### 1.6 Variables de entorno: `process.env` y `dotenv`
 
@@ -130,8 +131,8 @@ APP_NAME=Mi API
 ```
 
 ```js
-import 'dotenv/config';           // carga el .env en process.env
-console.log(process.env.PORT);    // '3000' → siempre es un string
+import "dotenv/config"; // carga el .env en process.env
+console.log(process.env.PORT); // '3000' → siempre es un string
 ```
 
 - `.env` va en `.gitignore` (tiene datos privados).
@@ -144,34 +145,34 @@ Un **servidor** es un software que **escucha solicitudes** (requests) de cliente
 Node incluye el módulo integrado `http` para crear uno:
 
 ```js
-import http from 'node:http';
+import http from "node:http";
 
 const server = http.createServer((req, res) => {
-  if (req.url === '/api/saludo') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    return res.end(JSON.stringify({ mensaje: 'Hola' }));
+  if (req.url === "/api/saludo") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    return res.end(JSON.stringify({ mensaje: "Hola" }));
   }
-  res.writeHead(404, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ mensaje: 'Ruta no encontrada' }));
+  res.writeHead(404, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ mensaje: "Ruta no encontrada" }));
 });
 
-server.listen(3000, () => console.log('Servidor en http://localhost:3000'));
+server.listen(3000, () => console.log("Servidor en http://localhost:3000"));
 ```
 
 Con `http` todo es manual (comparar URLs, convertir a JSON, escribir headers). En el módulo 04, **Express** simplifica exactamente eso.
 
 ### 1.8 Errores comunes
 
-| Error | Causa | Solución |
-|---|---|---|
-| `ReferenceError: document is not defined` | Usar el DOM en Node. | Node no tiene DOM. |
-| `SyntaxError: Cannot use import statement outside a module` | Falta `"type": "module"` en el `package.json`. | Agregarlo. |
-| `Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../utils/saludos'` | Ruta mal escrita, sin `./` o **sin la extensión `.js`**. | `import { saludar } from './utils/saludos.js'`. |
-| `ReferenceError: os is not defined` (o `sumar is not defined`) | Se usó algo que nunca se importó, o se escribió `import 'node:os'` sin darle un nombre. | `import os from 'node:os';` y `import { sumar } from './utils/calculos.js';` |
-| `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'dotenv'` | El paquete no está instalado. | `npm install dotenv`. |
-| `process.env.PORT` es `undefined` | Falta `import 'dotenv/config'` o el `.env` no está en la raíz. | Agregar el import y revisar la ubicación del `.env`. |
-| `EADDRINUSE: address already in use :::3000` | Ya hay un proceso usando ese puerto. | Cerrar el anterior (`Ctrl + C`) o cambiar el puerto. |
-| El navegador queda "cargando" | El servidor nunca respondió (`res.end`). | Toda solicitud debe recibir una respuesta. |
+| Error                                                                  | Causa                                                                                   | Solución                                                                     |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `ReferenceError: document is not defined`                              | Usar el DOM en Node.                                                                    | Node no tiene DOM.                                                           |
+| `SyntaxError: Cannot use import statement outside a module`            | Falta `"type": "module"` en el `package.json`.                                          | Agregarlo.                                                                   |
+| `Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../utils/saludos'` | Ruta mal escrita, sin `./` o **sin la extensión `.js`**.                                | `import { saludar } from './utils/saludos.js'`.                              |
+| `ReferenceError: os is not defined` (o `sumar is not defined`)         | Se usó algo que nunca se importó, o se escribió `import 'node:os'` sin darle un nombre. | `import os from 'node:os';` y `import { sumar } from './utils/calculos.js';` |
+| `Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'dotenv'`           | El paquete no está instalado.                                                           | `npm install dotenv`.                                                        |
+| `process.env.PORT` es `undefined`                                      | Falta `import 'dotenv/config'` o el `.env` no está en la raíz.                          | Agregar el import y revisar la ubicación del `.env`.                         |
+| `EADDRINUSE: address already in use :::3000`                           | Ya hay un proceso usando ese puerto.                                                    | Cerrar el anterior (`Ctrl + C`) o cambiar el puerto.                         |
+| El navegador queda "cargando"                                          | El servidor nunca respondió (`res.end`).                                                | Toda solicitud debe recibir una respuesta.                                   |
 
 ### 1.9 Dónde vas a usar esto en los trabajos prácticos
 
@@ -214,12 +215,16 @@ Precio con IVA: 1210
 Creá `test.js` y ejecutalo con `node test.js`. En cada línea, el valor **obtenido** tiene que coincidir con el **esperado**:
 
 ```js
-import { sumar, calcularIva } from './utils/calculos.js';
-import os from 'node:os';
+import { sumar, calcularIva } from "./utils/calculos.js";
+import os from "node:os";
 
 console.log(`sumar(10, 5) → esperado: 15 | obtenido: ${sumar(10, 5)}`);
-console.log(`calcularIva(1000) → esperado: 1210 | obtenido: ${calcularIva(1000)}`);
-console.log(`os.platform() → esperado: un texto (win32, linux...) | obtenido: ${os.platform()}`);
+console.log(
+  `calcularIva(1000) → esperado: 1210 | obtenido: ${calcularIva(1000)}`,
+);
+console.log(
+  `os.platform() → esperado: un texto (win32, linux...) | obtenido: ${os.platform()}`,
+);
 ```
 
 ---
@@ -259,12 +264,12 @@ console.log(`os.platform() → esperado: un texto (win32, linux...) | obtenido: 
 
 ### Cómo probarlo
 
-| # | Acción | Resultado esperado |
-|---|---|---|
-| 1 | `npm run dev` | Se muestran los 3 valores del `.env`. |
-| 2 | Con `npm run dev` corriendo, cambiá `MODO=produccion` en el `.env` y guardá `app.js` | Se reinicia y muestra el nuevo valor. |
-| 3 | Borrá la línea `PORT` del `.env` | Muestra `Puerto: 3000` igual. |
-| 4 | `git init` y `git status` | **No** aparecen `.env` ni `node_modules/`. |
+| #   | Acción                                                                               | Resultado esperado                         |
+| --- | ------------------------------------------------------------------------------------ | ------------------------------------------ |
+| 1   | `npm run dev`                                                                        | Se muestran los 3 valores del `.env`.      |
+| 2   | Con `npm run dev` corriendo, cambiá `MODO=produccion` en el `.env` y guardá `app.js` | Se reinicia y muestra el nuevo valor.      |
+| 3   | Borrá la línea `PORT` del `.env`                                                     | Muestra `Puerto: 3000` igual.              |
+| 4   | `git init` y `git status`                                                            | **No** aparecen `.env` ni `node_modules/`. |
 
 ---
 
@@ -279,22 +284,22 @@ console.log(`os.platform() → esperado: un texto (win32, linux...) | obtenido: 
 En un proyecto con `"type": "module"`, creá `datos.txt` con cualquier texto y este archivo `orden.js`:
 
 ```js
-import fs from 'node:fs';
+import fs from "node:fs";
 
-console.log('1. Inicio');
+console.log("1. Inicio");
 
-const contenido = fs.readFileSync('./datos.txt', 'utf-8');
-console.log('2. Lectura bloqueante terminada');
+const contenido = fs.readFileSync("./datos.txt", "utf-8");
+console.log("2. Lectura bloqueante terminada");
 
-fs.readFile('./datos.txt', 'utf-8', () => {
-  console.log('3. Lectura NO bloqueante terminada');
+fs.readFile("./datos.txt", "utf-8", () => {
+  console.log("3. Lectura NO bloqueante terminada");
 });
 
 setTimeout(() => {
-  console.log('4. Pasaron 0 ms');
+  console.log("4. Pasaron 0 ms");
 }, 0);
 
-console.log('5. Fin del script');
+console.log("5. Fin del script");
 ```
 
 1. **Antes de ejecutarlo**, escribí en un comentario el orden en que creés que se imprimen los mensajes.
@@ -305,11 +310,11 @@ console.log('5. Fin del script');
 
 Creá `server.js` (podés reutilizar el `.env` del ejercicio medio) que importe `http` con `import http from 'node:http'`, escuche en `process.env.PORT` y responda **en JSON**:
 
-| Ruta | Status | Respuesta |
-|---|---|---|
-| `/` | `200` | `{ "mensaje": "Servidor funcionando" }` |
-| `/api/personajes` | `200` | Un array con 3 personajes `{ id, nombre }` |
-| Cualquier otra | `404` | `{ "mensaje": "Ruta no encontrada" }` |
+| Ruta              | Status | Respuesta                                  |
+| ----------------- | ------ | ------------------------------------------ |
+| `/`               | `200`  | `{ "mensaje": "Servidor funcionando" }`    |
+| `/api/personajes` | `200`  | Un array con 3 personajes `{ id, nombre }` |
+| Cualquier otra    | `404`  | `{ "mensaje": "Ruta no encontrada" }`      |
 
 Agregá el script `"server": "node --watch server.js"`.
 
@@ -318,10 +323,10 @@ Agregá el script `"server": "node --watch server.js"`.
 1. `npm run server` → en la consola aparece `Servidor en http://localhost:3000`.
 2. En el navegador o en Thunder Client / Postman:
 
-| Petición | Status esperado |
-|---|---|
-| `GET http://localhost:3000/` | `200` |
+| Petición                                   | Status esperado        |
+| ------------------------------------------ | ---------------------- |
+| `GET http://localhost:3000/`               | `200`                  |
 | `GET http://localhost:3000/api/personajes` | `200` con 3 personajes |
-| `GET http://localhost:3000/api/otra-cosa` | `404` |
+| `GET http://localhost:3000/api/otra-cosa`  | `404`                  |
 
 3. Pregunta final (en un comentario): ¿por qué `server.js` **no termina** como `orden.js`, sino que queda ejecutándose?
