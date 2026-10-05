@@ -6,8 +6,4 @@ const contarPalabras = (texto) =>
     .split(" ")
     .filter((p) => p !== "").length;
 
-function formatearNombre(nombre, apellido) {
-  return `${capitalizar(apellido)}, ${capitalizar(nombre)}`;
-}
-
-export { capitalizar, contarPalabras, formatearNombre };
+export { capitalizar, contarPalabras };
