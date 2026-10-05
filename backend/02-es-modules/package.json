@@ -1,0 +1,13 @@
+{
+  "name": "02-es-modules",
+  "version": "1.0.0",
+  "description": "> Requisito de los trabajos prácticos: *\"El proyecto debe configurarse con `\"type\": \"module\"` en `package.json`. Todos los archivos deben usar la sintaxis `import`/`export`.\"*",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": []
+}
